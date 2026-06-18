@@ -1,26 +1,187 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Light neutrals (default) */
+  --bg:         #FAFAF7;
+  --surface:    #FFFFFF;
+  --surface-2:  #F4F4F0;
+  --border:     #E5E5E0;
+  --border-strong: #D1D1CB;
+  --text:       #0A0A0A;
+  --text-muted: #6B7280;
+  --text-dim:   #9CA3AF;
+
+  /* Brand accent — adjustable */
+  --accent:        #0F172A;
+  --accent-soft:   #1E293B;
+  --accent-fg:     #FFFFFF;
+
+  /* Status colors */
+  --positive:   #16A34A;
+  --warning:    #D97706;
+  --negative:   #DC2626;
+  --info:       #2563EB;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-text: var(--text);
+  --color-text-muted: var(--text-muted);
+  --color-text-dim: var(--text-dim);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-fg: var(--accent-fg);
+  --color-positive: var(--positive);
+  --color-warning: var(--warning);
+  --color-negative: var(--negative);
+  --color-info: var(--info);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html, body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji",
+    "Segoe UI Emoji";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+* { box-sizing: border-box; }
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 4px;
 }
+::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+
+/* Card */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+/* Button primitives */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.55rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background 150ms, color 150ms, border-color 150ms,
+    transform 80ms;
+}
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-primary {
+  background: var(--accent);
+  color: var(--accent-fg);
+  border-color: var(--accent);
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-soft);
+  border-color: var(--accent-soft);
+}
+.btn-secondary {
+  background: var(--surface);
+  color: var(--text);
+  border-color: var(--border-strong);
+}
+.btn-secondary:hover:not(:disabled) { background: var(--surface-2); }
+.btn-ghost {
+  background: transparent;
+  color: var(--text-muted);
+}
+.btn-ghost:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.btn-danger {
+  background: transparent;
+  color: var(--negative);
+  border-color: transparent;
+}
+.btn-danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--negative) 10%, transparent);
+}
+
+/* Inputs */
+.input,
+.textarea,
+.select {
+  width: 100%;
+  padding: 0.55rem 0.8rem;
+  font-size: 0.9rem;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  color: var(--text);
+  transition: border-color 150ms, box-shadow 150ms;
+}
+.input:focus,
+.textarea:focus,
+.select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.textarea { min-height: 100px; resize: vertical; line-height: 1.5; }
+.label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin-bottom: 0.3rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+/* Pills / tags */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 500;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.pill-positive { background: color-mix(in srgb, var(--positive) 14%, transparent); color: var(--positive); }
+.pill-warning  { background: color-mix(in srgb, var(--warning)  14%, transparent); color: var(--warning); }
+.pill-negative { background: color-mix(in srgb, var(--negative) 14%, transparent); color: var(--negative); }
+.pill-info     { background: color-mix(in srgb, var(--info)     14%, transparent); color: var(--info); }
+
+/* Table */
+.tbl { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 0.9rem; }
+.tbl th {
+  text-align: left;
+  font-weight: 500;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+.tbl td {
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+}
+.tbl tr:hover td { background: var(--surface-2); }
+.tbl tr:last-child td { border-bottom: 0; }

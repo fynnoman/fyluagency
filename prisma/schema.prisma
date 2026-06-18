@@ -1,0 +1,145 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Singleton settings row (always id = 1)
+model Settings {
+  id                      Int      @id @default(1)
+  businessName            String   @default("Fylu Marketing & Design")
+  businessAddress         String   @default("")
+  businessEmail           String   @default("")
+  businessPhone           String   @default("")
+  taxId                   String   @default("")
+  iban                    String   @default("")
+  bic                     String   @default("")
+  bankName                String   @default("")
+  logoPath                String?
+  vatRate                 Float    @default(19)
+  paymentTermsDays        Int      @default(14)
+  invoiceNumberPrefix     String   @default("RE")
+  invoiceNumberCounter    Int      @default(1)
+  invoiceFooter           String   @default("Vielen Dank für die gute Zusammenarbeit.")
+  invoiceLayoutPrimary    String   @default("#0B0B0E")
+  invoiceLayoutAccent     String   @default("#1F2937")
+  ollamaModel             String   @default("llama3.2")
+  ollamaBaseUrl           String   @default("http://localhost:11434")
+  googleAdsCustomerId     String?
+  googleAdsRefreshToken   String?
+  googleAdsDeveloperToken String?
+  updatedAt               DateTime @updatedAt
+}
+
+model Customer {
+  id         String    @id @default(cuid())
+  name       String
+  company    String?
+  email      String?
+  phone      String?
+  address    String?
+  taxId      String?
+  notes      String?
+  archivedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  issues           Issue[]
+  costs            Cost[]
+  invoices         Invoice[]
+  uploadedInvoices UploadedInvoice[]
+}
+
+model Lead {
+  id            String    @id @default(cuid())
+  name          String
+  company       String?
+  email         String?
+  phone         String?
+  source        String?
+  status        String    @default("new") // new, contacted, meeting, proposal, won, lost
+  expectedValue Float?
+  notes         String?
+  lastContactAt DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Issue {
+  id          String    @id @default(cuid())
+  customerId  String
+  title       String
+  description String?
+  price       Float?
+  done        Boolean   @default(false)
+  doneAt      DateTime?
+  order       Int       @default(0)
+  createdAt   DateTime  @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+}
+
+model Cost {
+  id          String    @id @default(cuid())
+  customerId  String
+  description String
+  amount      Float
+  frequency   String    @default("once") // once, monthly, yearly
+  dueDate     DateTime?
+  createdAt   DateTime  @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+}
+
+model Invoice {
+  id         String    @id @default(cuid())
+  customerId String
+  number     String    @unique
+  date       DateTime  @default(now())
+  dueDate    DateTime?
+  status     String    @default("draft") // draft, sent, paid, overdue
+  subtotal   Float
+  vatRate    Float // percent
+  vatAmount  Float
+  total      Float
+  notes      String?
+  paidAt     DateTime?
+  pdfPath    String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  customer Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  items    InvoiceItem[]
+}
+
+model InvoiceItem {
+  id          String @id @default(cuid())
+  invoiceId   String
+  description String
+  quantity    Float  @default(1)
+  unitPrice   Float
+  total       Float
+  order       Int    @default(0)
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+}
+
+// Customer-uploaded invoices (from third parties or as backup of own)
+model UploadedInvoice {
+  id             String    @id @default(cuid())
+  customerId     String
+  filename       String
+  path           String
+  extractedTotal Float?
+  extractedNet   Float?
+  extractedVat   Float?
+  extractedDate  DateTime?
+  extractedRaw   String? // raw extracted text
+  status         String    @default("pending") // pending, parsed, manual
+  uploadedAt     DateTime  @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+}
