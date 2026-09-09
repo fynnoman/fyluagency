@@ -43,6 +43,18 @@ export default function NewCustomerPage() {
             <label className="label" htmlFor="taxId">USt-ID</label>
             <input className="input" id="taxId" name="taxId" />
           </div>
+          <div>
+            <label className="label" htmlFor="projectValue">
+              Auftragsumfang (€)
+            </label>
+            <input
+              className="input"
+              id="projectValue"
+              name="projectValue"
+              inputMode="decimal"
+              placeholder="z. B. 4500"
+            />
+          </div>
         </div>
 
         <div>

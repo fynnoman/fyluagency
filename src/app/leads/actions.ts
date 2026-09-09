@@ -75,6 +75,7 @@ export async function convertLeadToCustomer(id: string) {
       company: lead.company,
       email: lead.email,
       phone: lead.phone,
+      projectValue: lead.expectedValue ?? null,
       notes: lead.notes
         ? `Aus Lead konvertiert. Quelle: ${lead.source || "—"}\n\n${lead.notes}`
         : `Aus Lead konvertiert. Quelle: ${lead.source || "—"}`,

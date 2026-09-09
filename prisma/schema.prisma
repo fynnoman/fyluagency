@@ -72,6 +72,9 @@ model Customer {
   offerDocumentUploadedAt DateTime?
   offerAmount             Float?
 
+  // Manuell gepflegter Auftragsumfang / Projektwert für Potenzial-Berechnung.
+  projectValue            Float?
+
   costs            Cost[]
   invoices         Invoice[]
   uploadedInvoices UploadedInvoice[]

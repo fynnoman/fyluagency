@@ -18,8 +18,14 @@ export default async function Dashboard(props: { searchParams: SearchParams }) {
   const start = getRangeStart(range);
 
   const where = start ? { date: { gte: start } } : {};
-  const [invoices, customers, activeCustomers, leadsPipeline] =
-    await Promise.all([
+  const [
+    invoices,
+    customers,
+    activeCustomers,
+    leadsPipeline,
+    potentialLeads,
+    potentialCustomers,
+  ] = await Promise.all([
       prisma.invoice.findMany({
         where,
         orderBy: { date: "asc" },
@@ -48,7 +54,32 @@ export default async function Dashboard(props: { searchParams: SearchParams }) {
         orderBy: { updatedAt: "desc" },
         take: 5,
       }),
+      prisma.lead.findMany({
+        where: {
+          status: { in: ["new", "contacted", "meeting", "proposal"] },
+          expectedValue: { not: null },
+        },
+        select: { expectedValue: true },
+      }),
+      prisma.customer.findMany({
+        where: {
+          archivedAt: null,
+          processFinalInvoicePaid: false,
+          projectValue: { not: null },
+        },
+        select: { projectValue: true },
+      }),
     ]);
+
+  const potentialLeadsTotal = potentialLeads.reduce(
+    (s, l) => s + (l.expectedValue || 0),
+    0,
+  );
+  const potentialCustomersTotal = potentialCustomers.reduce(
+    (s, c) => s + (c.projectValue || 0),
+    0,
+  );
+  const potentialTotal = potentialLeadsTotal + potentialCustomersTotal;
 
   const PROCESS_STEPS_TOTAL = 7;
   function processDone(c: (typeof activeCustomers)[number]) {
@@ -109,6 +140,34 @@ export default async function Dashboard(props: { searchParams: SearchParams }) {
             {RANGE_LABEL[k]}
           </Link>
         ))}
+      </div>
+
+      <div className="card p-5 mb-3 flex items-center justify-between gap-4">
+        <div>
+          <div className="text-xs uppercase tracking-wide text-text-muted">
+            Potenzial gesamt
+          </div>
+          <div className="mt-1 text-3xl font-semibold tabular-nums">
+            {formatMoney(potentialTotal)}
+          </div>
+          <div className="mt-1 text-xs text-text-muted">
+            {potentialLeads.length}{" "}
+            {potentialLeads.length === 1 ? "offener Lead" : "offene Leads"} ·{" "}
+            {potentialCustomers.length}{" "}
+            {potentialCustomers.length === 1
+              ? "Kundenprojekt offen"
+              : "Kundenprojekte offen"}
+          </div>
+        </div>
+        <div className="hidden sm:flex flex-col items-end text-xs text-text-muted tabular-nums gap-0.5">
+          <div>
+            Leads <span className="ml-2">{formatMoney(potentialLeadsTotal)}</span>
+          </div>
+          <div>
+            Kunden{" "}
+            <span className="ml-2">{formatMoney(potentialCustomersTotal)}</span>
+          </div>
+        </div>
       </div>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">

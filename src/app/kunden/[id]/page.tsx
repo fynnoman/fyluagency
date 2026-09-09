@@ -352,6 +352,24 @@ export default async function CustomerPage(props: { params: Params }) {
               </div>
               <Field name="taxId" label="USt-ID" defaultValue={customer.taxId || ""} />
               <div>
+                <label className="label" htmlFor="projectValue">
+                  Auftragsumfang (€){" "}
+                  {customer.projectValue != null && (
+                    <span className="text-text-dim font-normal">
+                      · aktuell {formatMoney(customer.projectValue)}
+                    </span>
+                  )}
+                </label>
+                <input
+                  className="input"
+                  id="projectValue"
+                  name="projectValue"
+                  inputMode="decimal"
+                  defaultValue={customer.projectValue ?? ""}
+                  placeholder="z. B. 4500"
+                />
+              </div>
+              <div>
                 <label className="label" htmlFor="notes">Interne Notizen</label>
                 <textarea className="textarea" name="notes" id="notes" rows={5} defaultValue={customer.notes || ""} />
               </div>

@@ -17,9 +17,11 @@ export async function createCustomer(formData: FormData) {
       address: str(formData, "address"),
       taxId: str(formData, "taxId"),
       notes: str(formData, "notes"),
+      projectValue: num(formData, "projectValue"),
     },
   });
   revalidatePath("/kunden");
+  revalidatePath("/");
   redirect(`/kunden/${customer.id}`);
 }
 
@@ -34,10 +36,12 @@ export async function updateCustomer(id: string, formData: FormData) {
       address: str(formData, "address"),
       taxId: str(formData, "taxId"),
       notes: str(formData, "notes"),
+      projectValue: num(formData, "projectValue"),
     },
   });
   revalidatePath(`/kunden/${id}`);
   revalidatePath("/kunden");
+  revalidatePath("/");
 }
 
 export async function deleteCustomer(id: string) {
@@ -138,4 +142,11 @@ export async function deleteCost(id: string, customerId: string) {
 function str(formData: FormData, key: string): string | null {
   const v = String(formData.get(key) || "").trim();
   return v === "" ? null : v;
+}
+
+function num(formData: FormData, key: string): number | null {
+  const raw = String(formData.get(key) || "").trim();
+  if (raw === "") return null;
+  const n = Number(raw.replace(",", "."));
+  return Number.isFinite(n) ? n : null;
 }
