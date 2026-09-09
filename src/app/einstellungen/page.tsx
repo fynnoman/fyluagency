@@ -3,6 +3,7 @@ import PageHeader from "@/components/PageHeader";
 import { getSettings } from "@/lib/settings";
 import { saveSettings, uploadLogo, removeLogo } from "./actions";
 import { isReachable } from "@/lib/ollama";
+import OpenAITestButton from "./OpenAITestButton";
 
 export const dynamic = "force-dynamic";
 
@@ -75,9 +76,39 @@ export default async function SettingsPage() {
             </div>
 
             <h2 className="font-semibold text-sm pt-4 border-t border-border">
-              Lokale KI (Ollama)
+              KI-Anbindung
             </h2>
+            <p className="text-xs text-text-muted -mt-2">
+              Priorität: OpenAI, wenn ein Key gesetzt ist. Sonst Ollama, wenn
+              erreichbar. Sonst regelbasierter Fallback.
+            </p>
+
             <div className="grid sm:grid-cols-2 gap-4">
+              <div className="sm:col-span-2">
+                <label className="label" htmlFor="openAIApiKey">
+                  OpenAI API-Key
+                </label>
+                <input
+                  className="input"
+                  id="openAIApiKey"
+                  name="openAIApiKey"
+                  type="password"
+                  defaultValue={settings.openAIApiKey || ""}
+                  placeholder={settings.openAIApiKey ? "•••••• hinterlegt" : "sk-..."}
+                  autoComplete="off"
+                />
+              </div>
+              <Field
+                name="openAIModel"
+                label="OpenAI Modell"
+                defaultValue={settings.openAIModel}
+              />
+              <div className="flex items-end">
+                <OpenAITestButton hasKey={!!settings.openAIApiKey} />
+              </div>
+            </div>
+
+            <div className="grid sm:grid-cols-2 gap-4 pt-4 border-t border-border">
               <Field
                 name="ollamaBaseUrl"
                 label="Ollama URL"
@@ -85,12 +116,17 @@ export default async function SettingsPage() {
               />
               <Field
                 name="ollamaModel"
-                label="Modell"
+                label="Ollama Modell"
                 defaultValue={settings.ollamaModel}
               />
             </div>
-            <div className={`pill ${ollamaUp ? "pill-positive" : "pill-warning"}`}>
-              {ollamaUp ? "Ollama erreichbar ✓" : "Ollama nicht erreichbar — Fallback aktiv"}
+            <div className="flex flex-wrap gap-2">
+              <div className={`pill ${settings.openAIApiKey ? "pill-positive" : "pill-warning"}`}>
+                {settings.openAIApiKey ? "OpenAI konfiguriert ✓" : "OpenAI ohne Key"}
+              </div>
+              <div className={`pill ${ollamaUp ? "pill-positive" : "pill-warning"}`}>
+                {ollamaUp ? "Ollama erreichbar ✓" : "Ollama offline"}
+              </div>
             </div>
 
             <div className="pt-2">

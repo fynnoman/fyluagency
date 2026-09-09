@@ -1,5 +1,5 @@
 import { prisma } from "./prisma";
-import { chat, isReachable } from "./ollama";
+import { chat, isAnyReachable } from "./ai";
 
 export type UpsellSuggestion = {
   customerId: string;
@@ -25,7 +25,7 @@ export async function generateUpsells(): Promise<UpsellSuggestion[]> {
         include: { items: true },
         take: 6,
       },
-      issues: true,
+      scopeItems: true,
     },
     take: 30,
   });
@@ -34,7 +34,7 @@ export async function generateUpsells(): Promise<UpsellSuggestion[]> {
   const candidates = customers.filter((c) => c.invoices.length > 0);
   if (!candidates.length) return [];
 
-  const reachable = await isReachable();
+  const reachable = await isAnyReachable();
 
   const results: UpsellSuggestion[] = [];
 
@@ -58,7 +58,7 @@ export async function generateUpsells(): Promise<UpsellSuggestion[]> {
           services: Array.from(services),
           revenue,
           daysSinceLast,
-          openIssues: c.issues.filter((i) => !i.done).length,
+          openIssues: c.scopeItems.filter((s) => !s.done).length,
         });
         if (ai) {
           results.push({
@@ -125,14 +125,14 @@ Gesamtumsatz bisher: ${input.revenue.toFixed(0)} €
 Tage seit letzter Rechnung: ${input.daysSinceLast}
 Offene Aufgaben: ${input.openIssues}`;
 
-  const raw = await chat(
+  const res = await chat(
     [
       { role: "system", content: system },
       { role: "user", content: userMsg },
     ],
-    { json: true, temperature: 0.5 }
+    { json: true, temperature: 0.5 },
   );
-  const obj = safeJson(raw);
+  const obj = safeJson(res.content);
   if (!obj) return null;
   const headline = String(obj.headline || "").trim();
   const reason = String(obj.reason || "").trim();

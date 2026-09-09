@@ -8,7 +8,7 @@ import { parseInvoiceText, type ParsedItem } from "@/lib/invoice-parse";
 
 export async function parseFromText(text: string): Promise<{
   items: ParsedItem[];
-  source: "ollama" | "heuristic";
+  source: "openai" | "ollama" | "heuristic";
 }> {
   return parseInvoiceText(text);
 }

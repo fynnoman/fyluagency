@@ -14,7 +14,7 @@ export default function NewCustomerPage() {
       </Link>
       <PageHeader
         title="Neuer Kunde"
-        subtitle="Stammdaten anlegen — Issues, Kosten und Rechnungen folgen danach."
+        subtitle="Stammdaten anlegen. Prozess, Leistungsumfang, Kosten und Rechnungen folgen danach."
       />
 
       <form action={createCustomer} className="card p-6 md:p-8 space-y-5 max-w-2xl">

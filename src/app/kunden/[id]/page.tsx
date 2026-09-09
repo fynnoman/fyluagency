@@ -1,13 +1,22 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft, Plus, FileText, Upload } from "lucide-react";
+import { ChevronLeft, Plus, FileText, Upload, Download } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import PageHeader from "@/components/PageHeader";
 import { formatMoney, formatDate } from "@/lib/format";
-import { addIssue, addCost, updateCustomer, deleteCustomer } from "../actions";
-import IssueRow from "./IssueRow";
+import {
+  addCost,
+  addScopeItem,
+  updateCustomer,
+  deleteCustomer,
+} from "../actions";
 import CostRow from "./CostRow";
 import InvoiceUpload from "./InvoiceUpload";
+import ProcessCard from "./ProcessCard";
+import ScopeItemRow from "./ScopeItemRow";
+import DeleteCustomerButton from "./DeleteCustomerButton";
+
+const PROCESS_STEPS_TOTAL = 7;
 
 export const dynamic = "force-dynamic";
 
@@ -18,10 +27,10 @@ export default async function CustomerPage(props: { params: Params }) {
   const customer = await prisma.customer.findUnique({
     where: { id },
     include: {
-      issues: { orderBy: [{ done: "asc" }, { createdAt: "desc" }] },
       costs: { orderBy: { createdAt: "desc" } },
       invoices: { orderBy: { date: "desc" } },
       uploadedInvoices: { orderBy: { uploadedAt: "desc" } },
+      scopeItems: { orderBy: [{ done: "asc" }, { order: "asc" }] },
     },
   });
 
@@ -30,14 +39,28 @@ export default async function CustomerPage(props: { params: Params }) {
   const totalInvoiced = customer.invoices.reduce((s, i) => s + i.total, 0);
   const totalNet = customer.invoices.reduce((s, i) => s + i.subtotal, 0);
   const totalVat = customer.invoices.reduce((s, i) => s + i.vatAmount, 0);
-  const openIssues = customer.issues.filter((i) => !i.done).length;
   const monthlyCost = customer.costs
     .filter((c) => c.frequency === "monthly")
     .reduce((s, c) => s + c.amount, 0);
 
+  const processValues = {
+    processOfferAccepted: customer.processOfferAccepted,
+    processScopeDefined: customer.processScopeDefined,
+    processPreferencesCollected: customer.processPreferencesCollected,
+    processDownPaymentPaid: customer.processDownPaymentPaid,
+    processProjectCompleted: customer.processProjectCompleted,
+    processFinalInvoicePaid: customer.processFinalInvoicePaid,
+    processReferenceCollected: customer.processReferenceCollected,
+  };
+  const processDone = Object.values(processValues).filter(Boolean).length;
+  const scopeTotal = customer.scopeItems.reduce(
+    (s, it) => s + (it.unitPrice != null ? it.unitPrice * it.quantity : 0),
+    0,
+  );
+
   const updateAction = updateCustomer.bind(null, customer.id);
-  const issueAction = addIssue.bind(null, customer.id);
   const costAction = addCost.bind(null, customer.id);
+  const scopeAction = addScopeItem.bind(null, customer.id);
   const deleteAction = deleteCustomer.bind(null, customer.id);
 
   return (
@@ -53,12 +76,21 @@ export default async function CustomerPage(props: { params: Params }) {
         title={customer.name}
         subtitle={customer.company || customer.email || "Kunde"}
         actions={
-          <Link
-            href={`/rechnungen/neu?customerId=${customer.id}`}
-            className="btn btn-primary"
-          >
-            <Plus size={14} /> Rechnung erstellen
-          </Link>
+          <>
+            <a
+              href={`/api/kunden/${customer.id}/export`}
+              className="btn btn-secondary"
+              download
+            >
+              <Download size={14} /> Alles exportieren
+            </a>
+            <Link
+              href={`/rechnungen/neu?customerId=${customer.id}`}
+              className="btn btn-primary"
+            >
+              <Plus size={14} /> Rechnung erstellen
+            </Link>
+          </>
         }
       />
 
@@ -67,36 +99,56 @@ export default async function CustomerPage(props: { params: Params }) {
         <Kpi label="Umsatz brutto" value={formatMoney(totalInvoiced)} />
         <Kpi label="davon MwSt." value={formatMoney(totalVat)} muted />
         <Kpi label="Wiederkehrend / Monat" value={formatMoney(monthlyCost)} muted />
-        <Kpi label="Offene Aufgaben" value={String(openIssues)} accent={openIssues > 0} />
+        <Kpi
+          label="Prozess-Fortschritt"
+          value={`${processDone}/${PROCESS_STEPS_TOTAL}`}
+          accent={processDone === PROCESS_STEPS_TOTAL}
+        />
       </div>
 
       <div className="grid lg:grid-cols-[1.4fr_1fr] gap-6">
         {/* LEFT COLUMN */}
         <div className="space-y-6">
-          {/* Issues */}
+          {/* Prozess-Checkliste */}
+          <ProcessCard
+            customerId={customer.id}
+            values={processValues}
+            scopeDocument={{
+              filename: customer.scopeDocumentFilename,
+              path: customer.scopeDocumentPath,
+              uploadedAt: customer.scopeDocumentUploadedAt,
+            }}
+          />
+
+          {/* Leistungsumfang */}
           <section className="card">
             <header className="px-5 py-4 border-b border-border flex items-center justify-between">
-              <h2 className="font-semibold text-sm">Aufgaben &amp; Wünsche</h2>
+              <h2 className="font-semibold text-sm">Leistungsumfang</h2>
               <span className="text-xs text-text-muted">
-                {openIssues} offen · {customer.issues.length - openIssues} fertig
+                {customer.scopeItems.length === 0
+                  ? "noch nichts hinterlegt"
+                  : scopeTotal > 0
+                    ? `${customer.scopeItems.length} Positionen · Summe ${formatMoney(scopeTotal)}`
+                    : `${customer.scopeItems.length} Positionen`}
               </span>
             </header>
 
             <div>
-              {customer.issues.length === 0 ? (
+              {customer.scopeItems.length === 0 ? (
                 <div className="px-5 py-6 text-sm text-text-muted">
-                  Keine Aufgaben für diesen Kunden — leg unten welche an.
+                  Lad in Schritt 2 ein Leistungsumfang-PDF hoch oder trag Positionen manuell unten ein.
                 </div>
               ) : (
-                customer.issues.map((i) => (
-                  <IssueRow
-                    key={i.id}
-                    issue={{
-                      id: i.id,
-                      title: i.title,
-                      description: i.description,
-                      price: i.price,
-                      done: i.done,
+                customer.scopeItems.map((it) => (
+                  <ScopeItemRow
+                    key={it.id}
+                    item={{
+                      id: it.id,
+                      title: it.title,
+                      details: it.details,
+                      quantity: it.quantity,
+                      unitPrice: it.unitPrice,
+                      done: it.done,
                     }}
                     customerId={customer.id}
                   />
@@ -104,28 +156,32 @@ export default async function CustomerPage(props: { params: Params }) {
               )}
             </div>
 
-            <form action={issueAction} className="px-5 py-4 border-t border-border grid sm:grid-cols-[1fr_120px_auto] gap-2">
+            <form
+              action={scopeAction}
+              className="px-5 py-4 border-t border-border grid sm:grid-cols-[1fr_80px_120px_auto] gap-2"
+            >
               <input
                 className="input"
                 name="title"
-                placeholder="Neue Aufgabe / Wunsch"
+                placeholder="Neue Position"
                 required
               />
               <input
                 className="input"
-                name="price"
-                placeholder="€"
+                name="quantity"
+                placeholder="Menge"
+                inputMode="decimal"
+                defaultValue="1"
+              />
+              <input
+                className="input"
+                name="unitPrice"
+                placeholder="€ / Einheit"
                 inputMode="decimal"
               />
               <button type="submit" className="btn btn-secondary">
                 <Plus size={14} /> Hinzufügen
               </button>
-              <textarea
-                className="textarea sm:col-span-3"
-                name="description"
-                placeholder="Beschreibung (optional)"
-                rows={2}
-              />
             </form>
           </section>
 
@@ -296,23 +352,12 @@ export default async function CustomerPage(props: { params: Params }) {
                 </button>
               </div>
             </form>
-            <form
-              action={deleteAction}
-              className="px-5 pb-5"
-            >
-              <button
-                type="submit"
-                className="btn btn-danger"
-                formNoValidate
-                onClick={(e) => {
-                  if (!confirm(`${customer.name} wirklich löschen? Alle Aufgaben, Kosten und Rechnungen werden ebenfalls gelöscht.`)) {
-                    e.preventDefault();
-                  }
-                }}
-              >
-                Kunde löschen
-              </button>
-            </form>
+            <div className="px-5 pb-5">
+              <DeleteCustomerButton
+                customerName={customer.name}
+                action={deleteAction}
+              />
+            </div>
           </section>
 
           <section className="card p-5 text-sm text-text-muted">

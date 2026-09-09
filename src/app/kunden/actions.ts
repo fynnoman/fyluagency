@@ -46,37 +46,69 @@ export async function deleteCustomer(id: string) {
   redirect("/kunden");
 }
 
-export async function addIssue(customerId: string, formData: FormData) {
+// Ein Schritt in der 7-Punkte-Prozess-Checkliste umschalten.
+const PROCESS_FIELDS = new Set([
+  "processOfferAccepted",
+  "processScopeDefined",
+  "processPreferencesCollected",
+  "processDownPaymentPaid",
+  "processProjectCompleted",
+  "processFinalInvoicePaid",
+  "processReferenceCollected",
+]);
+
+export async function toggleProcessStep(
+  customerId: string,
+  field: string,
+  next: boolean,
+) {
+  if (!PROCESS_FIELDS.has(field)) return;
+  await prisma.customer.update({
+    where: { id: customerId },
+    data: { [field]: next, updatedAt: new Date() },
+  });
+  revalidatePath(`/kunden/${customerId}`);
+}
+
+// Manuelle Leistungsposition anlegen (Alternative zum PDF-Upload).
+export async function addScopeItem(customerId: string, formData: FormData) {
   const title = String(formData.get("title") || "").trim();
   if (!title) return;
-  const priceRaw = String(formData.get("price") || "").trim();
-  const price = priceRaw ? Number(priceRaw.replace(",", ".")) : null;
-  await prisma.issue.create({
+  const qtyRaw = String(formData.get("quantity") || "").trim();
+  const priceRaw = String(formData.get("unitPrice") || "").trim();
+  const quantity = qtyRaw ? Number(qtyRaw.replace(",", ".")) : 1;
+  const unitPrice = priceRaw ? Number(priceRaw.replace(",", ".")) : null;
+  const max = await prisma.customerScopeItem.aggregate({
+    where: { customerId },
+    _max: { order: true },
+  });
+  const nextOrder = (max._max.order ?? -1) + 1;
+  await prisma.customerScopeItem.create({
     data: {
       customerId,
       title,
-      description: str(formData, "description"),
-      price: Number.isFinite(price) ? price : null,
+      quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : 1,
+      unitPrice: Number.isFinite(unitPrice as number)
+        ? (unitPrice as number)
+        : null,
+      order: nextOrder,
     },
   });
   revalidatePath(`/kunden/${customerId}`);
 }
 
-export async function toggleIssue(id: string, customerId: string) {
-  const issue = await prisma.issue.findUnique({ where: { id } });
-  if (!issue) return;
-  await prisma.issue.update({
+export async function toggleScopeItem(id: string, customerId: string) {
+  const item = await prisma.customerScopeItem.findUnique({ where: { id } });
+  if (!item) return;
+  await prisma.customerScopeItem.update({
     where: { id },
-    data: {
-      done: !issue.done,
-      doneAt: !issue.done ? new Date() : null,
-    },
+    data: { done: !item.done },
   });
   revalidatePath(`/kunden/${customerId}`);
 }
 
-export async function deleteIssue(id: string, customerId: string) {
-  await prisma.issue.delete({ where: { id } });
+export async function deleteScopeItem(id: string, customerId: string) {
+  await prisma.customerScopeItem.delete({ where: { id } });
   revalidatePath(`/kunden/${customerId}`);
 }
 

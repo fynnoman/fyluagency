@@ -1,11 +1,11 @@
-import { chat, isReachable } from "./ollama";
+import { chat, isAnyReachable } from "./ai";
 
 export type ExtractedInvoice = {
   total: number | null;
   net: number | null;
   vat: number | null;
   date: Date | null;
-  source: "ollama" | "heuristic";
+  source: "openai" | "ollama" | "heuristic";
 };
 
 /** Pull text from a PDF buffer using pdf-parse, lazy-imported. */
@@ -23,11 +23,10 @@ export async function extractPdfText(buffer: Buffer): Promise<string> {
  * falls back to a heuristic that covers the German invoice conventions.
  */
 export async function extractTotalsFromText(text: string): Promise<ExtractedInvoice> {
-  const reachable = await isReachable();
-  if (reachable) {
+  if (await isAnyReachable()) {
     try {
-      const ai = await ollamaExtract(text);
-      if (ai) return { ...ai, source: "ollama" };
+      const ai = await aiExtract(text);
+      if (ai) return ai;
     } catch {
       // fall through
     }
@@ -35,7 +34,7 @@ export async function extractTotalsFromText(text: string): Promise<ExtractedInvo
   return { ...heuristicExtract(text), source: "heuristic" };
 }
 
-async function ollamaExtract(text: string): Promise<Omit<ExtractedInvoice, "source"> | null> {
+async function aiExtract(text: string): Promise<ExtractedInvoice | null> {
   const system = `Du bist ein Parser für deutsche Rechnungs-PDFs einer Webdesign-Agentur.
 Du bekommst rohen Rechnungstext (oft chaotisch). Gib ein JSON-Objekt zurück:
 
@@ -55,22 +54,22 @@ Regeln:
 - date: das Datum der Rechnungsstellung, nicht das Fälligkeitsdatum
 - Antworte ausschließlich mit JSON, kein Text drumherum`;
 
-  const raw = await chat(
+  const res = await chat(
     [
       { role: "system", content: system },
       { role: "user", content: text.slice(0, 4000) },
     ],
-    { json: true, temperature: 0.1 }
+    { json: true, temperature: 0.1 },
   );
+  const source: "openai" | "ollama" = res.source === "openai" ? "openai" : "ollama";
 
-  const obj = safeJson(raw);
+  const obj = safeJson(res.content);
   if (!obj) return null;
   const total = toNum(obj.total);
   const net = toNum(obj.net);
   const vat = toNum(obj.vat);
   const date = toDate(obj.date);
 
-  // Sanity: total must be plausible
   if (total == null && net == null) return null;
 
   return {
@@ -78,6 +77,7 @@ Regeln:
     net: net ?? (total != null && vat != null ? round2(total - vat) : null),
     vat,
     date,
+    source,
   };
 }
 

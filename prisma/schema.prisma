@@ -28,6 +28,8 @@ model Settings {
   invoiceLayoutAccent     String   @default("#1F2937")
   ollamaModel             String   @default("llama3.2")
   ollamaBaseUrl           String   @default("http://localhost:11434")
+  openAIApiKey            String?
+  openAIModel             String   @default("gpt-4o-mini")
   googleAdsCustomerId     String?
   googleAdsRefreshToken   String?
   googleAdsDeveloperToken String?
@@ -35,51 +37,71 @@ model Settings {
 }
 
 model Customer {
-  id         String    @id @default(cuid())
-  name       String
-  company    String?
-  email      String?
-  phone      String?
-  address    String?
-  taxId      String?
-  notes      String?
-  archivedAt DateTime?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
-
-  issues           Issue[]
-  costs            Cost[]
-  invoices         Invoice[]
-  uploadedInvoices UploadedInvoice[]
-}
-
-model Lead {
   id            String    @id @default(cuid())
   name          String
   company       String?
   email         String?
   phone         String?
-  source        String?
-  status        String    @default("new") // new, contacted, meeting, proposal, won, lost
-  expectedValue Float?
+  address       String?
+  taxId         String?
   notes         String?
+  archivedAt    DateTime?
   lastContactAt DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+
+  // 7-Schritte-Prozess-Checkliste. Alle default false, damit bestehende
+  // Kunden automatisch bei Schritt 0 starten.
+  processOfferAccepted        Boolean @default(false)
+  processScopeDefined         Boolean @default(false)
+  processPreferencesCollected Boolean @default(false)
+  processDownPaymentPaid      Boolean @default(false)
+  processProjectCompleted     Boolean @default(false)
+  processFinalInvoicePaid     Boolean @default(false)
+  processReferenceCollected   Boolean @default(false)
+
+  // Leistungsumfang-Dokument aus Schritt 2 (Pfad im /public/uploads-Bereich).
+  scopeDocumentPath       String?
+  scopeDocumentFilename   String?
+  scopeDocumentUploadedAt DateTime?
+
+  costs            Cost[]
+  invoices         Invoice[]
+  uploadedInvoices UploadedInvoice[]
+  scopeItems       CustomerScopeItem[]
+  cashIncomes      CashIncome[]
 }
 
-model Issue {
-  id          String    @id @default(cuid())
-  customerId  String
-  title       String
-  description String?
-  price       Float?
-  done        Boolean   @default(false)
-  doneAt      DateTime?
-  order       Int       @default(0)
-  createdAt   DateTime  @default(now())
+model Lead {
+  id               String    @id @default(cuid())
+  name             String
+  company          String?
+  email            String?
+  phone            String?
+  source           String?
+  status           String    @default("new") // new, contacted, meeting, proposal, won, lost
+  expectedValue    Float?
+  offerDescription String?
+  notes            String?
+  lastContactAt    DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
-  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  emails LeadEmail[]
+}
+
+model LeadEmail {
+  id                String    @id @default(cuid())
+  leadId            String
+  direction         String    @default("sent") // sent, received
+  subject           String    @default("")
+  body              String    @default("")
+  summary           String?
+  summaryUpdatedAt  DateTime?
+  sentAt            DateTime?
+  createdAt         DateTime  @default(now())
+
+  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
 }
 
 model Cost {
@@ -140,6 +162,35 @@ model UploadedInvoice {
   extractedRaw   String? // raw extracted text
   status         String    @default("pending") // pending, parsed, manual
   uploadedAt     DateTime  @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+}
+
+// Einzelne Leistungsposition aus dem Leistungsumfang-Dokument (Schritt 2)
+// oder manuell nachgetragen.
+model CustomerScopeItem {
+  id          String  @id @default(cuid())
+  customerId  String
+  title       String
+  details     String?
+  quantity    Float   @default(1)
+  unitPrice   Float?
+  order       Int     @default(0)
+  done        Boolean @default(false)
+  createdAt   DateTime @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+}
+
+// Bareinnahmen (ohne Rechnung) je Kunde, aus der Mac-App importierbar.
+model CashIncome {
+  id         String   @id @default(cuid())
+  customerId String
+  details    String
+  amount     Float
+  date       DateTime @default(now())
+  notes      String?
+  createdAt  DateTime @default(now())
 
   customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
 }

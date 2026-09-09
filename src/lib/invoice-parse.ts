@@ -1,4 +1,4 @@
-import { chat, isReachable } from "./ollama";
+import { chat, isAnyReachable } from "./ai";
 
 export type ParsedItem = {
   description: string;
@@ -14,16 +14,15 @@ export type ParsedItem = {
  */
 export async function parseInvoiceText(text: string): Promise<{
   items: ParsedItem[];
-  source: "ollama" | "heuristic";
+  source: "openai" | "ollama" | "heuristic";
 }> {
   const trimmed = text.trim();
   if (!trimmed) return { items: [], source: "heuristic" };
 
-  const reachable = await isReachable();
-  if (reachable) {
+  if (await isAnyReachable()) {
     try {
-      const items = await ollamaParse(trimmed);
-      if (items.length > 0) return { items, source: "ollama" };
+      const { items, source } = await aiParse(trimmed);
+      if (items.length > 0) return { items, source };
     } catch {
       // Fall through to heuristic
     }
@@ -31,7 +30,9 @@ export async function parseInvoiceText(text: string): Promise<{
   return { items: heuristicParse(trimmed), source: "heuristic" };
 }
 
-async function ollamaParse(text: string): Promise<ParsedItem[]> {
+async function aiParse(
+  text: string,
+): Promise<{ items: ParsedItem[]; source: "openai" | "ollama" }> {
   const system = `Du bist ein präziser Parser für deutsche Rechnungs-Beschreibungen einer Webdesign-/Marketing-Agentur.
 Du bekommst einen freien Text. Extrahiere die einzelnen Leistungspositionen als JSON-Array.
 
@@ -56,18 +57,19 @@ Beispiel-Output:
   {"description":"SEO Optimierung","quantity":1,"unitPrice":200}
 ]}`;
 
-  const raw = await chat(
+  const res = await chat(
     [
       { role: "system", content: system },
       { role: "user", content: text },
     ],
-    { json: true, temperature: 0.1 }
+    { json: true, temperature: 0.1 },
   );
+  const source: "openai" | "ollama" = res.source === "openai" ? "openai" : "ollama";
 
-  const obj = safeJson(raw);
-  if (!obj || !Array.isArray(obj.items)) return [];
+  const obj = safeJson(res.content);
+  if (!obj || !Array.isArray(obj.items)) return { items: [], source };
 
-  return obj.items
+  const items = obj.items
     .map((it): ParsedItem | null => {
       if (!it || typeof it !== "object") return null;
       const desc = String((it as { description?: unknown }).description || "").trim();
@@ -81,6 +83,8 @@ Beispiel-Output:
       };
     })
     .filter((x): x is ParsedItem => x !== null);
+
+  return { items, source };
 }
 
 /**

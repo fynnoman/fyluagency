@@ -5,6 +5,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { prisma } from "@/lib/prisma";
 import { getSettings } from "@/lib/settings";
+import { ping as openaiPing } from "@/lib/openai";
 
 export async function saveSettings(formData: FormData) {
   await getSettings(); // ensure singleton exists
@@ -34,6 +35,9 @@ export async function saveSettings(formData: FormData) {
       invoiceLayoutAccent: String(formData.get("invoiceLayoutAccent") || "#1F2937"),
       ollamaModel: String(formData.get("ollamaModel") || "llama3.2"),
       ollamaBaseUrl: String(formData.get("ollamaBaseUrl") || "http://localhost:11434"),
+      openAIApiKey:
+        String(formData.get("openAIApiKey") || "").trim() || null,
+      openAIModel: String(formData.get("openAIModel") || "gpt-4o-mini"),
     },
   });
 
@@ -80,6 +84,20 @@ export async function uploadLogo(formData: FormData) {
   });
 
   revalidatePath("/einstellungen");
+}
+
+export async function testOpenAI(): Promise<{ ok: boolean; message: string }> {
+  const settings = await getSettings();
+  if (!settings.openAIApiKey) {
+    return { ok: false, message: "Kein OpenAI-Key hinterlegt." };
+  }
+  const ok = await openaiPing(settings.openAIApiKey, settings.openAIModel);
+  return {
+    ok,
+    message: ok
+      ? `OpenAI erreichbar (Modell ${settings.openAIModel}).`
+      : "OpenAI antwortet nicht. Key oder Modell prüfen.",
+  };
 }
 
 export async function removeLogo() {

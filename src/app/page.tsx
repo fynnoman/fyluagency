@@ -18,28 +18,52 @@ export default async function Dashboard(props: { searchParams: SearchParams }) {
   const start = getRangeStart(range);
 
   const where = start ? { date: { gte: start } } : {};
-  const [invoices, allInvoices, customers, openIssues, leadsPipeline] = await Promise.all([
-    prisma.invoice.findMany({
-      where,
-      orderBy: { date: "asc" },
-      include: { customer: true },
-    }),
-    prisma.invoice.findMany({
-      orderBy: { date: "asc" },
-    }),
-    prisma.customer.count(),
-    prisma.issue.findMany({
-      where: { done: false },
-      include: { customer: { select: { id: true, name: true } } },
-      orderBy: { createdAt: "desc" },
-      take: 8,
-    }),
-    prisma.lead.findMany({
-      where: { status: { in: ["meeting", "proposal", "contacted"] } },
-      orderBy: { updatedAt: "desc" },
-      take: 5,
-    }),
-  ]);
+  const [invoices, allInvoices, customers, activeCustomers, leadsPipeline] =
+    await Promise.all([
+      prisma.invoice.findMany({
+        where,
+        orderBy: { date: "asc" },
+        include: { customer: true },
+      }),
+      prisma.invoice.findMany({
+        orderBy: { date: "asc" },
+      }),
+      prisma.customer.count(),
+      prisma.customer.findMany({
+        where: {
+          archivedAt: null,
+          OR: [
+            { processOfferAccepted: true },
+            { processScopeDefined: true },
+            { processPreferencesCollected: true },
+            { processDownPaymentPaid: true },
+            { processProjectCompleted: true },
+            { processFinalInvoicePaid: true },
+          ],
+          processReferenceCollected: false,
+        },
+        orderBy: { updatedAt: "desc" },
+        take: 8,
+      }),
+      prisma.lead.findMany({
+        where: { status: { in: ["meeting", "proposal", "contacted"] } },
+        orderBy: { updatedAt: "desc" },
+        take: 5,
+      }),
+    ]);
+
+  const PROCESS_STEPS_TOTAL = 7;
+  function processDone(c: (typeof activeCustomers)[number]) {
+    return (
+      Number(c.processOfferAccepted) +
+      Number(c.processScopeDefined) +
+      Number(c.processPreferencesCollected) +
+      Number(c.processDownPaymentPaid) +
+      Number(c.processProjectCompleted) +
+      Number(c.processFinalInvoicePaid) +
+      Number(c.processReferenceCollected)
+    );
+  }
 
   const grossTotal = invoices.reduce((s, i) => s + i.total, 0);
   const netTotal = invoices.reduce((s, i) => s + i.subtotal, 0);
@@ -162,34 +186,44 @@ export default async function Dashboard(props: { searchParams: SearchParams }) {
           <section className="card">
             <header className="px-5 py-4 border-b border-border flex items-center justify-between">
               <h2 className="font-semibold text-sm flex items-center gap-2">
-                <FileText size={14} /> Offene Aufgaben
+                <FileText size={14} /> Kunden im Prozess
               </h2>
-              <span className="text-xs text-text-muted">{openIssues.length}</span>
+              <span className="text-xs text-text-muted">
+                {activeCustomers.length}
+              </span>
             </header>
-            {openIssues.length === 0 ? (
+            {activeCustomers.length === 0 ? (
               <div className="px-5 py-8 text-sm text-text-muted text-center">
-                Alles erledigt — schöner Tag heute.
+                Kein aktives Projekt gerade.
               </div>
             ) : (
               <ul className="divide-y divide-border">
-                {openIssues.map((iss) => (
-                  <li key={iss.id} className="px-5 py-3 text-sm flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="font-medium truncate">{iss.title}</div>
-                      <Link
-                        href={`/kunden/${iss.customer.id}`}
-                        className="text-xs text-text-muted hover:text-accent"
-                      >
-                        {iss.customer.name}
-                      </Link>
-                    </div>
-                    {iss.price != null && (
+                {activeCustomers.map((c) => {
+                  const d = processDone(c);
+                  return (
+                    <li
+                      key={c.id}
+                      className="px-5 py-3 text-sm flex items-center justify-between gap-3"
+                    >
+                      <div className="min-w-0">
+                        <Link
+                          href={`/kunden/${c.id}`}
+                          className="font-medium truncate hover:text-accent"
+                        >
+                          {c.name}
+                        </Link>
+                        {c.company && (
+                          <div className="text-xs text-text-muted truncate">
+                            {c.company}
+                          </div>
+                        )}
+                      </div>
                       <span className="text-xs text-text-muted tabular-nums shrink-0">
-                        {formatMoney(iss.price)}
+                        {d}/{PROCESS_STEPS_TOTAL}
                       </span>
-                    )}
-                  </li>
-                ))}
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </section>

@@ -36,7 +36,9 @@ export default function InvoiceComposer({
   );
   const [vatRate, setVatRate] = useState(defaultVatRate);
   const [notes, setNotes] = useState("");
-  const [source, setSource] = useState<"ollama" | "heuristic" | null>(null);
+  const [source, setSource] = useState<
+    "openai" | "ollama" | "heuristic" | null
+  >(null);
 
   const subtotal = items.reduce((s, it) => s + it.quantity * it.unitPrice, 0);
   const vatAmount = (subtotal * vatRate) / 100;
@@ -56,9 +58,11 @@ export default function InvoiceComposer({
         setItems(res.items);
         setSource(res.source);
         toast.success(
-          res.source === "ollama"
-            ? `Ollama hat ${res.items.length} Posten erkannt.`
-            : `${res.items.length} Posten heuristisch erkannt (Ollama offline).`
+          res.source === "openai"
+            ? `OpenAI hat ${res.items.length} Posten erkannt.`
+            : res.source === "ollama"
+              ? `Ollama hat ${res.items.length} Posten erkannt.`
+              : `${res.items.length} Posten heuristisch erkannt (keine KI verfügbar).`,
         );
       }
     } catch (e) {
@@ -130,7 +134,11 @@ export default function InvoiceComposer({
               <span className="text-xs text-text-muted">
                 Quelle:{" "}
                 <strong>
-                  {source === "ollama" ? "Ollama (lokale KI)" : "Heuristik (Fallback)"}
+                  {source === "openai"
+                    ? "OpenAI"
+                    : source === "ollama"
+                      ? "Ollama (lokale KI)"
+                      : "Heuristik (Fallback)"}
                 </strong>
               </span>
             )}

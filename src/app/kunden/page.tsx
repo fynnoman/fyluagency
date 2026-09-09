@@ -10,10 +10,22 @@ export default async function CustomersPage() {
   const customers = await prisma.customer.findMany({
     orderBy: { createdAt: "desc" },
     include: {
-      issues: { where: { done: false } },
       invoices: { select: { total: true, status: true } },
     },
   });
+
+  const PROCESS_STEPS_TOTAL = 7;
+  function processDone(c: (typeof customers)[number]) {
+    return (
+      Number(c.processOfferAccepted) +
+      Number(c.processScopeDefined) +
+      Number(c.processPreferencesCollected) +
+      Number(c.processDownPaymentPaid) +
+      Number(c.processProjectCompleted) +
+      Number(c.processFinalInvoicePaid) +
+      Number(c.processReferenceCollected)
+    );
+  }
 
   return (
     <>
@@ -43,7 +55,7 @@ export default async function CustomersPage() {
               <tr>
                 <th>Name</th>
                 <th>Firma</th>
-                <th>Offene Aufgaben</th>
+                <th>Prozess</th>
                 <th>Umsatz gesamt</th>
                 <th>Angelegt</th>
                 <th></th>
@@ -67,13 +79,26 @@ export default async function CustomersPage() {
                     </td>
                     <td className="text-text-muted">{c.company || "—"}</td>
                     <td>
-                      {c.issues.length === 0 ? (
-                        <span className="pill pill-positive">Fertig</span>
-                      ) : (
-                        <span className="pill pill-warning">
-                          {c.issues.length} offen
-                        </span>
-                      )}
+                      {(() => {
+                        const d = processDone(c);
+                        if (d === PROCESS_STEPS_TOTAL) {
+                          return (
+                            <span className="pill pill-positive">
+                              Abgeschlossen
+                            </span>
+                          );
+                        }
+                        if (d === 0) {
+                          return (
+                            <span className="pill">Nicht gestartet</span>
+                          );
+                        }
+                        return (
+                          <span className="pill pill-warning">
+                            {d}/{PROCESS_STEPS_TOTAL}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="tabular-nums">{formatMoney(revenue)}</td>
                     <td className="text-text-muted">{formatDate(c.createdAt)}</td>
