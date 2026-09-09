@@ -26,7 +26,7 @@ export async function saveSettings(formData: FormData) {
       iban: String(formData.get("iban") || ""),
       bic: String(formData.get("bic") || ""),
       bankName: String(formData.get("bankName") || ""),
-      vatRate: num("vatRate", 19),
+      vatRate: num("vatRate", 20),
       paymentTermsDays: Math.max(0, Math.round(num("paymentTermsDays", 14))),
       invoiceNumberPrefix: String(formData.get("invoiceNumberPrefix") || "RE"),
       invoiceFooter: String(formData.get("invoiceFooter") || ""),

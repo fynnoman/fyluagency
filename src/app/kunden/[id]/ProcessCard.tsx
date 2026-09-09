@@ -3,6 +3,7 @@
 import { useTransition } from "react";
 import { toggleProcessStep } from "../actions";
 import ScopeUpload from "./ScopeUpload";
+import OfferUpload from "./OfferUpload";
 
 type StepKey =
   | "processOfferAccepted"
@@ -30,6 +31,7 @@ export default function ProcessCard({
   customerId,
   values,
   scopeDocument,
+  offerDocument,
 }: {
   customerId: string;
   values: Record<StepKey, boolean>;
@@ -37,6 +39,12 @@ export default function ProcessCard({
     filename: string | null;
     path: string | null;
     uploadedAt: Date | null;
+  };
+  offerDocument: {
+    filename: string | null;
+    path: string | null;
+    uploadedAt: Date | null;
+    amount: number | null;
   };
 }) {
   const [pending, start] = useTransition();
@@ -105,6 +113,17 @@ export default function ProcessCard({
                       {step.label}
                     </span>
                   </div>
+
+                  {step.key === "processOfferAccepted" && (
+                    <div className="mt-2">
+                      <OfferUpload
+                        customerId={customerId}
+                        currentFilename={offerDocument.filename}
+                        currentPath={offerDocument.path}
+                        currentAmount={offerDocument.amount}
+                      />
+                    </div>
+                  )}
 
                   {step.key === "processScopeDefined" && (
                     <div className="mt-2">

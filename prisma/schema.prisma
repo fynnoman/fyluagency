@@ -20,7 +20,7 @@ model Settings {
   bic                     String   @default("")
   bankName                String   @default("")
   logoPath                String?
-  vatRate                 Float    @default(19)
+  vatRate                 Float    @default(20)
   paymentTermsDays        Int      @default(14)
   invoiceNumberPrefix     String   @default("RE")
   invoiceNumberCounter    Int      @default(1)
@@ -65,6 +65,12 @@ model Customer {
   scopeDocumentPath       String?
   scopeDocumentFilename   String?
   scopeDocumentUploadedAt DateTime?
+
+  // Angebots-Dokument aus Schritt 1 (Angebot angenommen). KI-Auslesen liefert offerAmount.
+  offerDocumentPath       String?
+  offerDocumentFilename   String?
+  offerDocumentUploadedAt DateTime?
+  offerAmount             Float?
 
   costs            Cost[]
   invoices         Invoice[]

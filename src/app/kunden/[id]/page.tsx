@@ -121,6 +121,12 @@ export default async function CustomerPage(props: { params: Params }) {
               path: customer.scopeDocumentPath,
               uploadedAt: customer.scopeDocumentUploadedAt,
             }}
+            offerDocument={{
+              filename: customer.offerDocumentFilename,
+              path: customer.offerDocumentPath,
+              uploadedAt: customer.offerDocumentUploadedAt,
+              amount: customer.offerAmount,
+            }}
           />
 
           {/* Leistungsumfang */}
