@@ -50,11 +50,15 @@ export async function chat(messages: OllamaMessage[], opts?: {
 
 /** Quick reachability check used by Settings and AI-feature gates. */
 export async function isReachable(baseUrl?: string): Promise<boolean> {
+  // Ollama is a local-only fallback. On Vercel/production there is no
+  // localhost:11434, and a blocking fetch (even short) taxes every page
+  // render that touches this. Short-circuit in production.
+  if (process.env.VERCEL || process.env.NODE_ENV === "production") return false;
   const settings = await getSettings();
   const url = baseUrl || settings.ollamaBaseUrl || "http://localhost:11434";
   try {
     const res = await fetch(`${url}/api/tags`, {
-      signal: AbortSignal.timeout(2000),
+      signal: AbortSignal.timeout(800),
     });
     return res.ok;
   } catch {

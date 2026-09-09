@@ -18,6 +18,7 @@ const COLUMNS = [
 export default async function LeadsPage() {
   const leads = await prisma.lead.findMany({
     orderBy: [{ updatedAt: "desc" }],
+    take: 500,
   });
 
   const totalPipeline = leads

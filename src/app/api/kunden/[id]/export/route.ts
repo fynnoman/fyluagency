@@ -66,15 +66,25 @@ export async function GET(_req: NextRequest, ctx: Params) {
   let logoDataUrl: string | null = null;
   if (settings.logoPath) {
     try {
-      const filePath = path.join(process.cwd(), "public", settings.logoPath);
-      const buf = await fs.readFile(filePath);
-      const mime = settings.logoPath.endsWith(".svg")
+      let buf: Buffer;
+      const source = settings.logoPath;
+      if (source.startsWith("http://") || source.startsWith("https://")) {
+        const res = await fetch(source);
+        if (!res.ok) throw new Error(`logo fetch ${res.status}`);
+        buf = Buffer.from(await res.arrayBuffer());
+      } else {
+        const filePath = path.join(process.cwd(), "public", source);
+        buf = await fs.readFile(filePath);
+      }
+      const lower = source.toLowerCase();
+      const mime = lower.endsWith(".svg")
         ? "image/svg+xml"
-        : settings.logoPath.endsWith(".jpg") || settings.logoPath.endsWith(".jpeg")
+        : lower.endsWith(".jpg") || lower.endsWith(".jpeg")
           ? "image/jpeg"
           : "image/png";
       logoDataUrl = `data:${mime};base64,${buf.toString("base64")}`;
-    } catch {
+    } catch (e) {
+      console.error("[export] logo load failed:", e);
       logoDataUrl = null;
     }
   }
@@ -226,12 +236,19 @@ export async function GET(_req: NextRequest, ctx: Params) {
 
   for (const u of customer.uploadedInvoices) {
     try {
-      const relative = u.path.startsWith("/") ? u.path.slice(1) : u.path;
-      const filePath = path.join(process.cwd(), "public", relative);
-      const buf = await fs.readFile(filePath);
+      let buf: Buffer;
+      if (u.path.startsWith("http://") || u.path.startsWith("https://")) {
+        const res = await fetch(u.path);
+        if (!res.ok) throw new Error(`beleg fetch ${res.status}`);
+        buf = Buffer.from(await res.arrayBuffer());
+      } else {
+        const relative = u.path.startsWith("/") ? u.path.slice(1) : u.path;
+        const filePath = path.join(process.cwd(), "public", relative);
+        buf = await fs.readFile(filePath);
+      }
       zip.file(`belege/${safePart(u.filename)}`, buf);
-    } catch {
-      // skip missing files silently
+    } catch (e) {
+      console.error("[export] beleg fetch failed:", u.path, e);
     }
   }
 

@@ -1,11 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import fs from "node:fs/promises";
-import path from "node:path";
 import { prisma } from "@/lib/prisma";
 import { getSettings } from "@/lib/settings";
 import { ping as openaiPing } from "@/lib/openai";
+import { saveUpload, removeUpload } from "@/lib/storage";
 
 export async function saveSettings(formData: FormData) {
   await getSettings(); // ensure singleton exists
@@ -62,25 +61,17 @@ export async function uploadLogo(formData: FormData) {
         ? "svg"
         : "jpg";
   const filename = `logo-${Date.now()}.${ext}`;
-  const uploadsDir = path.join(process.cwd(), "public", "uploads");
-  await fs.mkdir(uploadsDir, { recursive: true });
-  const filepath = path.join(uploadsDir, filename);
-  await fs.writeFile(filepath, buf);
+  const { url } = await saveUpload(filename, buf, file.type);
 
-  // Delete old logo file if present
   await getSettings();
   const current = await prisma.settings.findUnique({ where: { id: 1 } });
   if (current?.logoPath) {
-    try {
-      await fs.unlink(path.join(process.cwd(), "public", current.logoPath));
-    } catch {
-      /* ignore */
-    }
+    await removeUpload(current.logoPath);
   }
 
   await prisma.settings.update({
     where: { id: 1 },
-    data: { logoPath: `/uploads/${filename}` },
+    data: { logoPath: url },
   });
 
   revalidatePath("/einstellungen");
@@ -107,11 +98,7 @@ export async function testOpenAI(): Promise<{ ok: boolean; message: string }> {
 export async function removeLogo() {
   const current = await prisma.settings.findUnique({ where: { id: 1 } });
   if (current?.logoPath) {
-    try {
-      await fs.unlink(path.join(process.cwd(), "public", current.logoPath));
-    } catch {
-      /* ignore */
-    }
+    await removeUpload(current.logoPath);
   }
   await prisma.settings.update({
     where: { id: 1 },

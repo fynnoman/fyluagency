@@ -27,10 +27,13 @@ export default async function CustomerPage(props: { params: Params }) {
   const customer = await prisma.customer.findUnique({
     where: { id },
     include: {
-      costs: { orderBy: { createdAt: "desc" } },
-      invoices: { orderBy: { date: "desc" } },
-      uploadedInvoices: { orderBy: { uploadedAt: "desc" } },
-      scopeItems: { orderBy: [{ done: "asc" }, { order: "asc" }] },
+      costs: { orderBy: { createdAt: "desc" }, take: 200 },
+      invoices: { orderBy: { date: "desc" }, take: 200 },
+      uploadedInvoices: { orderBy: { uploadedAt: "desc" }, take: 200 },
+      scopeItems: {
+        orderBy: [{ done: "asc" }, { order: "asc" }],
+        take: 500,
+      },
     },
   });
 

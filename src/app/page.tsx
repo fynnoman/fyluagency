@@ -18,15 +18,13 @@ export default async function Dashboard(props: { searchParams: SearchParams }) {
   const start = getRangeStart(range);
 
   const where = start ? { date: { gte: start } } : {};
-  const [invoices, allInvoices, customers, activeCustomers, leadsPipeline] =
+  const [invoices, customers, activeCustomers, leadsPipeline] =
     await Promise.all([
       prisma.invoice.findMany({
         where,
         orderBy: { date: "asc" },
-        include: { customer: true },
-      }),
-      prisma.invoice.findMany({
-        orderBy: { date: "asc" },
+        take: 500,
+        include: { customer: { select: { id: true, name: true } } },
       }),
       prisma.customer.count(),
       prisma.customer.findMany({
@@ -83,7 +81,7 @@ export default async function Dashboard(props: { searchParams: SearchParams }) {
       new Date(i.dueDate).getTime() < today.getTime()
   );
 
-  const chartData = buildChartData(allInvoices, range);
+  const chartData = buildChartData(invoices, range);
 
   return (
     <>

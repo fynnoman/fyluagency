@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import fs from "node:fs/promises";
-import path from "node:path";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { extractPdfText } from "@/lib/pdf-extract";
 import { parseScopeText } from "@/lib/scope-parse";
+import { saveUpload } from "@/lib/storage";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -37,24 +36,15 @@ export async function POST(req: NextRequest) {
 
   const buf = Buffer.from(await file.arrayBuffer());
 
-  const dir = path.join(
-    process.cwd(),
-    "public",
-    "uploads",
-    "scope",
-    customerId,
-  );
-  await fs.mkdir(dir, { recursive: true });
   const safeName = file.name.replace(/[^a-zA-Z0-9_.\- ]/g, "_");
-  const filename = `${Date.now()}-${safeName}`;
-  const filepath = path.join(dir, filename);
-  await fs.writeFile(filepath, buf);
-  const publicPath = `/uploads/scope/${customerId}/${filename}`;
+  const key = `scope/${customerId}/${Date.now()}-${safeName}`;
+  const { url: publicPath } = await saveUpload(key, buf, "application/pdf");
 
   let text = "";
   try {
     text = await extractPdfText(buf);
-  } catch {
+  } catch (e) {
+    console.error("[upload-scope] extractPdfText failed:", e);
     text = "";
   }
 

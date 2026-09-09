@@ -27,19 +27,29 @@ export async function GET(_req: NextRequest, ctx: Params) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  // Load logo as data URL if present
+  // Load logo as data URL if present (supports both Blob https URLs and local paths)
   let logoDataUrl: string | null = null;
   if (settings.logoPath) {
     try {
-      const filePath = path.join(process.cwd(), "public", settings.logoPath);
-      const buf = await fs.readFile(filePath);
-      const mime = settings.logoPath.endsWith(".svg")
+      let buf: Buffer;
+      const source = settings.logoPath;
+      if (source.startsWith("http://") || source.startsWith("https://")) {
+        const res = await fetch(source);
+        if (!res.ok) throw new Error(`logo fetch ${res.status}`);
+        buf = Buffer.from(await res.arrayBuffer());
+      } else {
+        const filePath = path.join(process.cwd(), "public", source);
+        buf = await fs.readFile(filePath);
+      }
+      const lower = source.toLowerCase();
+      const mime = lower.endsWith(".svg")
         ? "image/svg+xml"
-        : settings.logoPath.endsWith(".jpg") || settings.logoPath.endsWith(".jpeg")
+        : lower.endsWith(".jpg") || lower.endsWith(".jpeg")
           ? "image/jpeg"
           : "image/png";
       logoDataUrl = `data:${mime};base64,${buf.toString("base64")}`;
-    } catch {
+    } catch (e) {
+      console.error("[invoice-pdf] logo load failed:", e);
       logoDataUrl = null;
     }
   }

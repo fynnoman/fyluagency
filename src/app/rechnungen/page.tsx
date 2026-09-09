@@ -22,7 +22,8 @@ const STATUS_LABEL: Record<string, string> = {
 export default async function InvoicesPage() {
   const invoices = await prisma.invoice.findMany({
     orderBy: { date: "desc" },
-    include: { customer: true },
+    take: 200,
+    include: { customer: { select: { id: true, name: true } } },
   });
 
   const totalAll = invoices.reduce((s, i) => s + i.total, 0);
