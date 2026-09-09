@@ -88,15 +88,19 @@ export async function uploadLogo(formData: FormData) {
 
 export async function testOpenAI(): Promise<{ ok: boolean; message: string }> {
   const settings = await getSettings();
-  if (!settings.openAIApiKey) {
-    return { ok: false, message: "Kein OpenAI-Key hinterlegt." };
+  const envKey = process.env.OPENAI_API_KEY;
+  const key = envKey || settings.openAIApiKey || "";
+  if (!key) {
+    return { ok: false, message: "Kein OpenAI-Key hinterlegt (weder Env noch DB)." };
   }
-  const ok = await openaiPing(settings.openAIApiKey, settings.openAIModel);
+  const model = process.env.OPENAI_MODEL || settings.openAIModel;
+  const ok = await openaiPing(key, model);
+  const source = envKey ? "Env" : "DB";
   return {
     ok,
     message: ok
-      ? `OpenAI erreichbar (Modell ${settings.openAIModel}).`
-      : "OpenAI antwortet nicht. Key oder Modell prüfen.",
+      ? `OpenAI erreichbar (Modell ${model}, Key aus ${source}).`
+      : `OpenAI antwortet nicht (Key aus ${source}). Key oder Modell prüfen.`,
   };
 }
 

@@ -3,6 +3,7 @@ import PageHeader from "@/components/PageHeader";
 import { getSettings } from "@/lib/settings";
 import { saveSettings, uploadLogo, removeLogo } from "./actions";
 import { isReachable } from "@/lib/ollama";
+import { keySource } from "@/lib/openai";
 import OpenAITestButton from "./OpenAITestButton";
 
 export const dynamic = "force-dynamic";
@@ -10,6 +11,7 @@ export const dynamic = "force-dynamic";
 export default async function SettingsPage() {
   const settings = await getSettings();
   const ollamaUp = await isReachable(settings.ollamaBaseUrl);
+  const openAIKeySource = await keySource();
 
   return (
     <>
@@ -79,14 +81,19 @@ export default async function SettingsPage() {
               KI-Anbindung
             </h2>
             <p className="text-xs text-text-muted -mt-2">
-              Priorität: OpenAI, wenn ein Key gesetzt ist. Sonst Ollama, wenn
-              erreichbar. Sonst regelbasierter Fallback.
+              Priorität: Env-Variable OPENAI_API_KEY, sonst Key aus der DB
+              unten, sonst Ollama, sonst Heuristik.
             </p>
 
             <div className="grid sm:grid-cols-2 gap-4">
               <div className="sm:col-span-2">
                 <label className="label" htmlFor="openAIApiKey">
                   OpenAI API-Key
+                  {openAIKeySource === "env" && (
+                    <span className="ml-2 text-xs text-positive font-normal">
+                      per Env aktiv (dieses Feld wird ignoriert)
+                    </span>
+                  )}
                 </label>
                 <input
                   className="input"
@@ -94,8 +101,15 @@ export default async function SettingsPage() {
                   name="openAIApiKey"
                   type="password"
                   defaultValue={settings.openAIApiKey || ""}
-                  placeholder={settings.openAIApiKey ? "•••••• hinterlegt" : "sk-..."}
+                  placeholder={
+                    openAIKeySource === "env"
+                      ? "OPENAI_API_KEY per Env gesetzt"
+                      : settings.openAIApiKey
+                        ? "•••••• hinterlegt"
+                        : "sk-..."
+                  }
                   autoComplete="off"
+                  disabled={openAIKeySource === "env"}
                 />
               </div>
               <Field
@@ -104,7 +118,9 @@ export default async function SettingsPage() {
                 defaultValue={settings.openAIModel}
               />
               <div className="flex items-end">
-                <OpenAITestButton hasKey={!!settings.openAIApiKey} />
+                <OpenAITestButton
+                  hasKey={openAIKeySource !== "none"}
+                />
               </div>
             </div>
 
@@ -121,8 +137,14 @@ export default async function SettingsPage() {
               />
             </div>
             <div className="flex flex-wrap gap-2">
-              <div className={`pill ${settings.openAIApiKey ? "pill-positive" : "pill-warning"}`}>
-                {settings.openAIApiKey ? "OpenAI konfiguriert ✓" : "OpenAI ohne Key"}
+              <div
+                className={`pill ${openAIKeySource !== "none" ? "pill-positive" : "pill-warning"}`}
+              >
+                {openAIKeySource === "env"
+                  ? "OpenAI aktiv (Env) ✓"
+                  : openAIKeySource === "settings"
+                    ? "OpenAI aktiv (DB) ✓"
+                    : "OpenAI ohne Key"}
               </div>
               <div className={`pill ${ollamaUp ? "pill-positive" : "pill-warning"}`}>
                 {ollamaUp ? "Ollama erreichbar ✓" : "Ollama offline"}

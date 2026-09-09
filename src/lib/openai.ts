@@ -20,9 +20,12 @@ export async function chat(
   },
 ): Promise<string> {
   const settings = await getSettings();
-  const apiKey = opts?.apiKey || settings.openAIApiKey || "";
+  // Reihenfolge: expliziter Override > Env-Var (Vercel/Serverless) > Settings-DB (lokale UI-Eingabe)
+  const apiKey =
+    opts?.apiKey || process.env.OPENAI_API_KEY || settings.openAIApiKey || "";
   if (!apiKey) throw new Error("Kein OpenAI-Key hinterlegt.");
-  const model = opts?.model || settings.openAIModel || "gpt-4o-mini";
+  const model =
+    opts?.model || process.env.OPENAI_MODEL || settings.openAIModel || "gpt-4o-mini";
 
   const body: Record<string, unknown> = {
     model,
@@ -56,18 +59,29 @@ export async function chat(
   return data.choices?.[0]?.message?.content ?? "";
 }
 
-/** Prüft ob ein Key hinterlegt und die API erreichbar ist. */
+/** Prüft ob ein Key hinterlegt ist (env oder DB). Kein Netzwerk-Ping. */
 export async function isConfigured(): Promise<boolean> {
+  if (process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.trim()) return true;
   const settings = await getSettings();
   return !!(settings.openAIApiKey && settings.openAIApiKey.trim());
+}
+
+/** Woher der Key kommt — für die UI-Anzeige. */
+export async function keySource(): Promise<"env" | "settings" | "none"> {
+  if (process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.trim()) return "env";
+  const settings = await getSettings();
+  if (settings.openAIApiKey && settings.openAIApiKey.trim()) return "settings";
+  return "none";
 }
 
 /** Live-Test mit einer Mini-Anfrage. Für den Ping-Button in den Einstellungen. */
 export async function ping(apiKey?: string, model?: string): Promise<boolean> {
   try {
+    const effectiveKey = apiKey || process.env.OPENAI_API_KEY || undefined;
+    const effectiveModel = model || process.env.OPENAI_MODEL || undefined;
     const out = await chat(
       [{ role: "user", content: "Antworte mit dem Wort ok." }],
-      { apiKey, model, temperature: 0 },
+      { apiKey: effectiveKey, model: effectiveModel, temperature: 0 },
     );
     return out.toLowerCase().includes("ok");
   } catch {
