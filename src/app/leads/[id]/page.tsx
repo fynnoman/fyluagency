@@ -6,6 +6,7 @@ import PageHeader from "@/components/PageHeader";
 import { formatDate, formatMoney } from "@/lib/format";
 import { updateLead, deleteLead, convertLeadToCustomer } from "../actions";
 import StatusButtons from "./StatusButtons";
+import DeleteLeadButton from "./DeleteLeadButton";
 
 export const dynamic = "force-dynamic";
 
@@ -107,18 +108,9 @@ export default async function LeadPage(props: { params: Params }) {
         </div>
       </form>
 
-      <form action={deleteAction} className="mt-6">
-        <button
-          type="submit"
-          className="btn btn-danger"
-          formNoValidate
-          onClick={(e) => {
-            if (!confirm("Lead wirklich löschen?")) e.preventDefault();
-          }}
-        >
-          Lead löschen
-        </button>
-      </form>
+      <div className="mt-6">
+        <DeleteLeadButton action={deleteAction} />
+      </div>
     </>
   );
 }
