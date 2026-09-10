@@ -73,13 +73,16 @@ model Customer {
   offerAmount             Float?
 
   // Manuell gepflegter Auftragsumfang / Projektwert für Potenzial-Berechnung.
-  projectValue            Float?
+  projectValue Float?
 
   costs            Cost[]
   invoices         Invoice[]
   uploadedInvoices UploadedInvoice[]
   scopeItems       CustomerScopeItem[]
   cashIncomes      CashIncome[]
+
+  @@index([archivedAt])
+  @@index([updatedAt])
 }
 
 model Lead {
@@ -98,20 +101,25 @@ model Lead {
   updatedAt        DateTime  @updatedAt
 
   emails LeadEmail[]
+
+  @@index([status])
+  @@index([updatedAt])
 }
 
 model LeadEmail {
-  id                String    @id @default(cuid())
-  leadId            String
-  direction         String    @default("sent") // sent, received
-  subject           String    @default("")
-  body              String    @default("")
-  summary           String?
-  summaryUpdatedAt  DateTime?
-  sentAt            DateTime?
-  createdAt         DateTime  @default(now())
+  id               String    @id @default(cuid())
+  leadId           String
+  direction        String    @default("sent") // sent, received
+  subject          String    @default("")
+  body             String    @default("")
+  summary          String?
+  summaryUpdatedAt DateTime?
+  sentAt           DateTime?
+  createdAt        DateTime  @default(now())
 
   lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([leadId])
 }
 
 model Cost {
@@ -124,6 +132,8 @@ model Cost {
   createdAt   DateTime  @default(now())
 
   customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
 }
 
 model Invoice {
@@ -145,6 +155,10 @@ model Invoice {
 
   customer Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
   items    InvoiceItem[]
+
+  @@index([customerId])
+  @@index([date])
+  @@index([status])
 }
 
 model InvoiceItem {
@@ -157,6 +171,8 @@ model InvoiceItem {
   order       Int    @default(0)
 
   invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
 }
 
 // Customer-uploaded invoices (from third parties or as backup of own)
@@ -174,22 +190,26 @@ model UploadedInvoice {
   uploadedAt     DateTime  @default(now())
 
   customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
 }
 
 // Einzelne Leistungsposition aus dem Leistungsumfang-Dokument (Schritt 2)
 // oder manuell nachgetragen.
 model CustomerScopeItem {
-  id          String  @id @default(cuid())
-  customerId  String
-  title       String
-  details     String?
-  quantity    Float   @default(1)
-  unitPrice   Float?
-  order       Int     @default(0)
-  done        Boolean @default(false)
-  createdAt   DateTime @default(now())
+  id         String   @id @default(cuid())
+  customerId String
+  title      String
+  details    String?
+  quantity   Float    @default(1)
+  unitPrice  Float?
+  order      Int      @default(0)
+  done       Boolean  @default(false)
+  createdAt  DateTime @default(now())
 
   customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
 }
 
 // Bareinnahmen (ohne Rechnung) je Kunde, aus der Mac-App importierbar.
@@ -203,4 +223,6 @@ model CashIncome {
   createdAt  DateTime @default(now())
 
   customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
 }

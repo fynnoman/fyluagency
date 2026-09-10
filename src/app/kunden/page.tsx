@@ -2,18 +2,47 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import PageHeader from "@/components/PageHeader";
 import { formatMoney, formatDate } from "@/lib/format";
-import { Plus, ArrowRight } from "lucide-react";
+import { Plus, ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
-export default async function CustomersPage() {
-  const customers = await prisma.customer.findMany({
-    orderBy: { createdAt: "desc" },
-    take: 500,
-    include: {
-      invoices: { select: { total: true, status: true }, take: 500 },
-    },
-  });
+const PAGE_SIZE = 50;
+
+type SearchParams = Promise<{ page?: string }>;
+
+export default async function CustomersPage({
+  searchParams,
+}: {
+  searchParams: SearchParams;
+}) {
+  const sp = await searchParams;
+  const page = Math.max(1, Number(sp.page) || 1);
+  const skip = (page - 1) * PAGE_SIZE;
+
+  const [customers, totalCount] = await Promise.all([
+    prisma.customer.findMany({
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: PAGE_SIZE,
+    }),
+    prisma.customer.count(),
+  ]);
+
+  // Aggregate revenue per customer once, only for the customers on this page.
+  const customerIds = customers.map((c) => c.id);
+  const revenueRows = customerIds.length
+    ? await prisma.invoice.groupBy({
+        by: ["customerId"],
+        where: { customerId: { in: customerIds } },
+        _sum: { total: true },
+      })
+    : [];
+  const revenueByCustomer = new Map<string, number>();
+  for (const r of revenueRows) {
+    revenueByCustomer.set(r.customerId, r._sum.total ?? 0);
+  }
+
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
   const PROCESS_STEPS_TOTAL = 7;
   function processDone(c: (typeof customers)[number]) {
@@ -32,7 +61,7 @@ export default async function CustomersPage() {
     <>
       <PageHeader
         title="Kunden"
-        subtitle={`${customers.length} aktive Kunden`}
+        subtitle={`${totalCount} Kunden gesamt · Seite ${page} von ${totalPages}`}
         actions={
           <Link href="/kunden/neu" className="btn btn-primary">
             <Plus size={14} /> Neuer Kunde
@@ -64,10 +93,7 @@ export default async function CustomersPage() {
             </thead>
             <tbody>
               {customers.map((c) => {
-                const revenue = c.invoices.reduce(
-                  (s, i) => s + i.total,
-                  0
-                );
+                const revenue = revenueByCustomer.get(c.id) ?? 0;
                 return (
                   <tr key={c.id}>
                     <td>
@@ -117,6 +143,46 @@ export default async function CustomersPage() {
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {totalPages > 1 && (
+        <div className="mt-4 flex items-center justify-between text-sm">
+          <div className="text-text-muted">
+            {skip + 1}–{Math.min(skip + customers.length, totalCount)} von{" "}
+            {totalCount}
+          </div>
+          <div className="flex items-center gap-1">
+            {page > 1 ? (
+              <Link
+                href={`/kunden?page=${page - 1}`}
+                className="btn btn-ghost"
+                aria-label="Vorherige Seite"
+              >
+                <ChevronLeft size={14} />
+              </Link>
+            ) : (
+              <span className="btn btn-ghost opacity-40 pointer-events-none">
+                <ChevronLeft size={14} />
+              </span>
+            )}
+            <span className="px-3 tabular-nums text-text-muted">
+              {page} / {totalPages}
+            </span>
+            {page < totalPages ? (
+              <Link
+                href={`/kunden?page=${page + 1}`}
+                className="btn btn-ghost"
+                aria-label="Nächste Seite"
+              >
+                <ChevronRight size={14} />
+              </Link>
+            ) : (
+              <span className="btn btn-ghost opacity-40 pointer-events-none">
+                <ChevronRight size={14} />
+              </span>
+            )}
+          </div>
         </div>
       )}
     </>

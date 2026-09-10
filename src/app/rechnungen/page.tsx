@@ -1,10 +1,12 @@
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import PageHeader from "@/components/PageHeader";
 import { formatMoney, formatDate } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
+
+const PAGE_SIZE = 50;
 
 const STATUS_PILL: Record<string, string> = {
   draft: "pill",
@@ -19,22 +21,42 @@ const STATUS_LABEL: Record<string, string> = {
   overdue: "überfällig",
 };
 
-export default async function InvoicesPage() {
-  const invoices = await prisma.invoice.findMany({
-    orderBy: { date: "desc" },
-    take: 200,
-    include: { customer: { select: { id: true, name: true } } },
-  });
+type SearchParams = Promise<{ page?: string }>;
 
-  const totalAll = invoices.reduce((s, i) => s + i.total, 0);
-  const totalPaid = invoices.filter((i) => i.status === "paid").reduce((s, i) => s + i.total, 0);
-  const totalOpen = invoices.filter((i) => i.status !== "paid").reduce((s, i) => s + i.total, 0);
+export default async function InvoicesPage({
+  searchParams,
+}: {
+  searchParams: SearchParams;
+}) {
+  const sp = await searchParams;
+  const page = Math.max(1, Number(sp.page) || 1);
+  const skip = (page - 1) * PAGE_SIZE;
+
+  const [invoices, totalCount, totalAgg, paidAgg] = await Promise.all([
+    prisma.invoice.findMany({
+      orderBy: { date: "desc" },
+      skip,
+      take: PAGE_SIZE,
+      include: { customer: { select: { id: true, name: true } } },
+    }),
+    prisma.invoice.count(),
+    prisma.invoice.aggregate({ _sum: { total: true } }),
+    prisma.invoice.aggregate({
+      _sum: { total: true },
+      where: { status: "paid" },
+    }),
+  ]);
+
+  const totalAll = totalAgg._sum.total ?? 0;
+  const totalPaid = paidAgg._sum.total ?? 0;
+  const totalOpen = totalAll - totalPaid;
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
   return (
     <>
       <PageHeader
         title="Rechnungen"
-        subtitle={`${invoices.length} Rechnungen · ${formatMoney(totalAll)} gesamt`}
+        subtitle={`${totalCount} Rechnungen · ${formatMoney(totalAll)} gesamt · Seite ${page} von ${totalPages}`}
         actions={
           <Link href="/rechnungen/neu" className="btn btn-primary">
             <Plus size={14} /> Neue Rechnung
@@ -99,6 +121,46 @@ export default async function InvoicesPage() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {totalPages > 1 && (
+        <div className="mt-4 flex items-center justify-between text-sm">
+          <div className="text-text-muted">
+            {skip + 1}–{Math.min(skip + invoices.length, totalCount)} von{" "}
+            {totalCount}
+          </div>
+          <div className="flex items-center gap-1">
+            {page > 1 ? (
+              <Link
+                href={`/rechnungen?page=${page - 1}`}
+                className="btn btn-ghost"
+                aria-label="Vorherige Seite"
+              >
+                <ChevronLeft size={14} />
+              </Link>
+            ) : (
+              <span className="btn btn-ghost opacity-40 pointer-events-none">
+                <ChevronLeft size={14} />
+              </span>
+            )}
+            <span className="px-3 tabular-nums text-text-muted">
+              {page} / {totalPages}
+            </span>
+            {page < totalPages ? (
+              <Link
+                href={`/rechnungen?page=${page + 1}`}
+                className="btn btn-ghost"
+                aria-label="Nächste Seite"
+              >
+                <ChevronRight size={14} />
+              </Link>
+            ) : (
+              <span className="btn btn-ghost opacity-40 pointer-events-none">
+                <ChevronRight size={14} />
+              </span>
+            )}
+          </div>
         </div>
       )}
     </>

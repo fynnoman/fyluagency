@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { FileText, Sparkles, Users, AlertCircle, Plus } from "lucide-react";
 import { prisma } from "@/lib/prisma";
@@ -7,8 +8,6 @@ import { parseRange, getRangeStart, RANGE_LABEL, type RangeKey } from "@/lib/ran
 import RevenueChart from "./RevenueChart";
 import UpsellPanel from "./UpsellPanel";
 import GoogleAdsWidget from "./GoogleAdsWidget";
-
-export const dynamic = "force-dynamic";
 
 type SearchParams = Promise<{ r?: string }>;
 
@@ -199,9 +198,13 @@ export default async function Dashboard(props: { searchParams: SearchParams }) {
             </div>
           </section>
 
-          <UpsellPanel />
+          <Suspense fallback={<WidgetSkeleton title="Wo holst du noch Geld raus?" />}>
+            <UpsellPanel />
+          </Suspense>
 
-          <GoogleAdsWidget />
+          <Suspense fallback={<WidgetSkeleton title="Google Ads" />}>
+            <GoogleAdsWidget />
+          </Suspense>
 
           {overdue.length > 0 && (
             <section className="card">
@@ -383,6 +386,21 @@ function MiniKpi({
         {value}
       </span>
     </div>
+  );
+}
+
+function WidgetSkeleton({ title }: { title: string }) {
+  return (
+    <section className="card">
+      <header className="px-5 py-4 border-b border-border flex items-center justify-between">
+        <h2 className="font-semibold text-sm">{title}</h2>
+        <span className="text-xs text-text-muted">wird geladen …</span>
+      </header>
+      <div className="px-5 py-8">
+        <div className="h-3 w-2/3 bg-surface-2 rounded animate-pulse" />
+        <div className="h-3 w-1/2 bg-surface-2 rounded mt-2 animate-pulse" />
+      </div>
+    </section>
   );
 }
 

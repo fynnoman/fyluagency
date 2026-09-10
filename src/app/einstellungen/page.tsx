@@ -10,8 +10,10 @@ export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
   const settings = await getSettings();
-  const ollamaUp = await isReachable(settings.ollamaBaseUrl);
-  const openAIKeySource = await keySource();
+  const [ollamaUp, openAIKeySource] = await Promise.all([
+    isReachable(settings.ollamaBaseUrl),
+    keySource(),
+  ]);
 
   return (
     <>
