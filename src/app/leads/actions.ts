@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { getCurrentWorkspaceId } from "@/lib/workspace";
 
 const STATUSES = ["new", "contacted", "meeting", "proposal", "won", "lost"] as const;
 export type LeadStatus = (typeof STATUSES)[number];
@@ -12,9 +13,11 @@ export async function createLead(formData: FormData) {
   if (!name) throw new Error("Name fehlt");
   const valueRaw = String(formData.get("expectedValue") || "").trim();
   const value = valueRaw ? Number(valueRaw.replace(",", ".")) : null;
+  const workspaceId = await getCurrentWorkspaceId();
 
   const lead = await prisma.lead.create({
     data: {
+      workspaceId,
       name,
       company: str(formData, "company"),
       email: str(formData, "email"),
@@ -32,9 +35,10 @@ export async function createLead(formData: FormData) {
 export async function updateLead(id: string, formData: FormData) {
   const valueRaw = String(formData.get("expectedValue") || "").trim();
   const value = valueRaw ? Number(valueRaw.replace(",", ".")) : null;
+  const workspaceId = await getCurrentWorkspaceId();
 
-  await prisma.lead.update({
-    where: { id },
+  await prisma.lead.updateMany({
+    where: { id, workspaceId },
     data: {
       name: String(formData.get("name") || "").trim() || undefined,
       company: str(formData, "company"),
@@ -52,8 +56,9 @@ export async function updateLead(id: string, formData: FormData) {
 
 export async function moveLeadStatus(id: string, status: LeadStatus) {
   if (!STATUSES.includes(status)) return;
-  await prisma.lead.update({
-    where: { id },
+  const workspaceId = await getCurrentWorkspaceId();
+  await prisma.lead.updateMany({
+    where: { id, workspaceId },
     data: { status, lastContactAt: new Date() },
   });
   revalidatePath("/leads");
@@ -61,16 +66,19 @@ export async function moveLeadStatus(id: string, status: LeadStatus) {
 }
 
 export async function deleteLead(id: string) {
-  await prisma.lead.delete({ where: { id } });
+  const workspaceId = await getCurrentWorkspaceId();
+  await prisma.lead.deleteMany({ where: { id, workspaceId } });
   revalidatePath("/leads");
   redirect("/leads");
 }
 
 export async function convertLeadToCustomer(id: string) {
-  const lead = await prisma.lead.findUnique({ where: { id } });
+  const workspaceId = await getCurrentWorkspaceId();
+  const lead = await prisma.lead.findFirst({ where: { id, workspaceId } });
   if (!lead) return;
   const customer = await prisma.customer.create({
     data: {
+      workspaceId,
       name: lead.name,
       company: lead.company,
       email: lead.email,
@@ -81,8 +89,8 @@ export async function convertLeadToCustomer(id: string) {
         : `Aus Lead konvertiert. Quelle: ${lead.source || "—"}`,
     },
   });
-  await prisma.lead.update({
-    where: { id },
+  await prisma.lead.updateMany({
+    where: { id, workspaceId },
     data: { status: "won", lastContactAt: new Date() },
   });
   revalidatePath("/kunden");

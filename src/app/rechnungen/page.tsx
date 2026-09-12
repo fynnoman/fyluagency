@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import { prisma } from "@/lib/prisma";
+import { getCurrentWorkspaceId } from "@/lib/workspace";
 import PageHeader from "@/components/PageHeader";
 import { formatMoney, formatDate } from "@/lib/format";
 
@@ -32,18 +33,20 @@ export default async function InvoicesPage({
   const page = Math.max(1, Number(sp.page) || 1);
   const skip = (page - 1) * PAGE_SIZE;
 
+  const workspaceId = await getCurrentWorkspaceId();
   const [invoices, totalCount, totalAgg, paidAgg] = await Promise.all([
     prisma.invoice.findMany({
+      where: { workspaceId },
       orderBy: { date: "desc" },
       skip,
       take: PAGE_SIZE,
       include: { customer: { select: { id: true, name: true } } },
     }),
-    prisma.invoice.count(),
-    prisma.invoice.aggregate({ _sum: { total: true } }),
+    prisma.invoice.count({ where: { workspaceId } }),
+    prisma.invoice.aggregate({ _sum: { total: true }, where: { workspaceId } }),
     prisma.invoice.aggregate({
       _sum: { total: true },
-      where: { status: "paid" },
+      where: { workspaceId, status: "paid" },
     }),
   ]);
 

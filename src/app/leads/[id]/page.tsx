@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft, ArrowRightCircle } from "lucide-react";
 import { prisma } from "@/lib/prisma";
+import { getCurrentWorkspaceId } from "@/lib/workspace";
 import PageHeader from "@/components/PageHeader";
 import { formatDate, formatMoney } from "@/lib/format";
 import { updateLead, deleteLead, convertLeadToCustomer } from "../actions";
@@ -14,7 +15,8 @@ type Params = Promise<{ id: string }>;
 
 export default async function LeadPage(props: { params: Params }) {
   const { id } = await props.params;
-  const lead = await prisma.lead.findUnique({ where: { id } });
+  const workspaceId = await getCurrentWorkspaceId();
+  const lead = await prisma.lead.findFirst({ where: { id, workspaceId } });
   if (!lead) notFound();
 
   const updateAction = updateLead.bind(null, id);

@@ -3,11 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getSettings } from "@/lib/settings";
+import { getCurrentWorkspaceId } from "@/lib/workspace";
 
 export async function saveGoogleAds(formData: FormData) {
+  const workspaceId = await getCurrentWorkspaceId();
   await getSettings();
   await prisma.settings.update({
-    where: { id: 1 },
+    where: { workspaceId },
     data: {
       googleAdsCustomerId: emptyToNull(formData.get("googleAdsCustomerId")),
       googleAdsDeveloperToken: emptyToNull(formData.get("googleAdsDeveloperToken")),

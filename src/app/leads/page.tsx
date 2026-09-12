@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { prisma } from "@/lib/prisma";
+import { getCurrentWorkspaceId } from "@/lib/workspace";
 import PageHeader from "@/components/PageHeader";
 import { formatMoney, formatDate } from "@/lib/format";
 
@@ -16,7 +17,9 @@ const COLUMNS = [
 ] as const;
 
 export default async function LeadsPage() {
+  const workspaceId = await getCurrentWorkspaceId();
   const leads = await prisma.lead.findMany({
+    where: { workspaceId },
     orderBy: [{ updatedAt: "desc" }],
     take: 500,
   });

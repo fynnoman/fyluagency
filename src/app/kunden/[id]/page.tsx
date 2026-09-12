@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft, Plus, FileText, Upload, Download } from "lucide-react";
 import { prisma } from "@/lib/prisma";
+import { getCurrentWorkspaceId } from "@/lib/workspace";
 import PageHeader from "@/components/PageHeader";
 import { formatMoney, formatDate } from "@/lib/format";
 import {
@@ -24,8 +25,9 @@ type Params = Promise<{ id: string }>;
 
 export default async function CustomerPage(props: { params: Params }) {
   const { id } = await props.params;
-  const customer = await prisma.customer.findUnique({
-    where: { id },
+  const workspaceId = await getCurrentWorkspaceId();
+  const customer = await prisma.customer.findFirst({
+    where: { id, workspaceId },
     include: {
       costs: { orderBy: { createdAt: "desc" }, take: 200 },
       invoices: { orderBy: { date: "desc" }, take: 200 },

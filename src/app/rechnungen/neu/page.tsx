@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { getSettings } from "@/lib/settings";
+import { getCurrentWorkspaceId } from "@/lib/workspace";
 import PageHeader from "@/components/PageHeader";
 import InvoiceComposer from "./InvoiceComposer";
 
@@ -13,8 +14,10 @@ export default async function NewInvoicePage(props: {
   searchParams: SearchParams;
 }) {
   const { customerId } = await props.searchParams;
+  const workspaceId = await getCurrentWorkspaceId();
   const [customers, settings] = await Promise.all([
     prisma.customer.findMany({
+      where: { workspaceId },
       orderBy: { name: "asc" },
       select: { id: true, name: true, company: true },
     }),

@@ -8,37 +8,55 @@ datasource db {
   directUrl = env("DATABASE_URL_UNPOOLED")
 }
 
-// Singleton settings row (always id = 1)
+model Workspace {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  settings  Settings?
+  customers Customer[]
+  leads     Lead[]
+  invoices  Invoice[]
+
+  @@index([createdAt])
+}
+
+// Settings row per workspace (1:1).
 model Settings {
-  id                      Int      @id @default(1)
-  businessName            String   @default("Fylu Marketing & Design")
-  businessAddress         String   @default("")
-  businessEmail           String   @default("")
-  businessPhone           String   @default("")
-  taxId                   String   @default("")
-  iban                    String   @default("")
-  bic                     String   @default("")
-  bankName                String   @default("")
+  workspaceId             String    @id
+  businessName            String    @default("Fylu Marketing & Design")
+  businessAddress         String    @default("")
+  businessEmail           String    @default("")
+  businessPhone           String    @default("")
+  taxId                   String    @default("")
+  iban                    String    @default("")
+  bic                     String    @default("")
+  bankName                String    @default("")
   logoPath                String?
-  vatRate                 Float    @default(20)
-  paymentTermsDays        Int      @default(14)
-  invoiceNumberPrefix     String   @default("RE")
-  invoiceNumberCounter    Int      @default(1)
-  invoiceFooter           String   @default("Vielen Dank für die gute Zusammenarbeit.")
-  invoiceLayoutPrimary    String   @default("#0B0B0E")
-  invoiceLayoutAccent     String   @default("#1F2937")
-  ollamaModel             String   @default("llama3.2")
-  ollamaBaseUrl           String   @default("http://localhost:11434")
+  vatRate                 Float     @default(20)
+  paymentTermsDays        Int       @default(14)
+  invoiceNumberPrefix     String    @default("RE")
+  invoiceNumberCounter    Int       @default(1)
+  invoiceFooter           String    @default("Vielen Dank für die gute Zusammenarbeit.")
+  invoiceLayoutPrimary    String    @default("#0B0B0E")
+  invoiceLayoutAccent     String    @default("#1F2937")
+  ollamaModel             String    @default("llama3.2")
+  ollamaBaseUrl           String    @default("http://localhost:11434")
   openAIApiKey            String?
-  openAIModel             String   @default("gpt-4o-mini")
+  openAIModel             String    @default("gpt-4o-mini")
   googleAdsCustomerId     String?
   googleAdsRefreshToken   String?
   googleAdsDeveloperToken String?
-  updatedAt               DateTime @updatedAt
+  updatedAt               DateTime  @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 }
 
 model Customer {
   id            String    @id @default(cuid())
+  workspaceId   String
   name          String
   company       String?
   email         String?
@@ -75,18 +93,21 @@ model Customer {
   // Manuell gepflegter Auftragsumfang / Projektwert für Potenzial-Berechnung.
   projectValue Float?
 
+  workspace        Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   costs            Cost[]
   invoices         Invoice[]
   uploadedInvoices UploadedInvoice[]
   scopeItems       CustomerScopeItem[]
   cashIncomes      CashIncome[]
 
+  @@index([workspaceId])
   @@index([archivedAt])
   @@index([updatedAt])
 }
 
 model Lead {
   id               String    @id @default(cuid())
+  workspaceId      String
   name             String
   company          String?
   email            String?
@@ -100,8 +121,10 @@ model Lead {
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
-  emails LeadEmail[]
+  workspace Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  emails    LeadEmail[]
 
+  @@index([workspaceId])
   @@index([status])
   @@index([updatedAt])
 }
@@ -137,25 +160,29 @@ model Cost {
 }
 
 model Invoice {
-  id         String    @id @default(cuid())
-  customerId String
-  number     String    @unique
-  date       DateTime  @default(now())
-  dueDate    DateTime?
-  status     String    @default("draft") // draft, sent, paid, overdue
-  subtotal   Float
-  vatRate    Float // percent
-  vatAmount  Float
-  total      Float
-  notes      String?
-  paidAt     DateTime?
-  pdfPath    String?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  id          String    @id @default(cuid())
+  workspaceId String
+  customerId  String
+  number      String
+  date        DateTime  @default(now())
+  dueDate     DateTime?
+  status      String    @default("draft") // draft, sent, paid, overdue
+  subtotal    Float
+  vatRate     Float // percent
+  vatAmount   Float
+  total       Float
+  notes       String?
+  paidAt      DateTime?
+  pdfPath     String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  customer Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  items    InvoiceItem[]
+  workspace Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  customer  Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  items     InvoiceItem[]
 
+  @@unique([workspaceId, number])
+  @@index([workspaceId])
   @@index([customerId])
   @@index([date])
   @@index([status])

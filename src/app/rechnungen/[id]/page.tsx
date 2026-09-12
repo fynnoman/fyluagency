@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeft, FileDown, FileText } from "lucide-react";
 import { prisma } from "@/lib/prisma";
+import { getCurrentWorkspaceId } from "@/lib/workspace";
 import PageHeader from "@/components/PageHeader";
 import { formatMoney, formatDate } from "@/lib/format";
 import StatusControls from "./StatusControls";
@@ -12,8 +13,9 @@ type Params = Promise<{ id: string }>;
 
 export default async function InvoicePage(props: { params: Params }) {
   const { id } = await props.params;
-  const invoice = await prisma.invoice.findUnique({
-    where: { id },
+  const workspaceId = await getCurrentWorkspaceId();
+  const invoice = await prisma.invoice.findFirst({
+    where: { id, workspaceId },
     include: {
       customer: true,
       items: { orderBy: { order: "asc" } },

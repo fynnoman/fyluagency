@@ -5,9 +5,11 @@ import { prisma } from "@/lib/prisma";
 import { getSettings } from "@/lib/settings";
 import { ping as openaiPing } from "@/lib/openai";
 import { saveUpload, removeUpload } from "@/lib/storage";
+import { getCurrentWorkspaceId } from "@/lib/workspace";
 
 export async function saveSettings(formData: FormData) {
-  await getSettings(); // ensure singleton exists
+  const workspaceId = await getCurrentWorkspaceId();
+  await getSettings(); // ensure row exists
 
   const num = (key: string, fallback: number) => {
     const v = String(formData.get(key) || "").trim();
@@ -16,7 +18,7 @@ export async function saveSettings(formData: FormData) {
   };
 
   await prisma.settings.update({
-    where: { id: 1 },
+    where: { workspaceId },
     data: {
       businessName: String(formData.get("businessName") || "").trim() || "Fylu Marketing & Design",
       businessAddress: String(formData.get("businessAddress") || ""),
@@ -63,14 +65,15 @@ export async function uploadLogo(formData: FormData) {
   const filename = `logo-${Date.now()}.${ext}`;
   const { url } = await saveUpload(filename, buf, file.type);
 
+  const workspaceId = await getCurrentWorkspaceId();
   await getSettings();
-  const current = await prisma.settings.findUnique({ where: { id: 1 } });
+  const current = await prisma.settings.findUnique({ where: { workspaceId } });
   if (current?.logoPath) {
     await removeUpload(current.logoPath);
   }
 
   await prisma.settings.update({
-    where: { id: 1 },
+    where: { workspaceId },
     data: { logoPath: url },
   });
 
@@ -96,12 +99,13 @@ export async function testOpenAI(): Promise<{ ok: boolean; message: string }> {
 }
 
 export async function removeLogo() {
-  const current = await prisma.settings.findUnique({ where: { id: 1 } });
+  const workspaceId = await getCurrentWorkspaceId();
+  const current = await prisma.settings.findUnique({ where: { workspaceId } });
   if (current?.logoPath) {
     await removeUpload(current.logoPath);
   }
   await prisma.settings.update({
-    where: { id: 1 },
+    where: { workspaceId },
     data: { logoPath: null },
   });
   revalidatePath("/einstellungen");

@@ -1,13 +1,15 @@
 import { cache } from "react";
 import { prisma } from "./prisma";
+import { getCurrentWorkspaceId } from "./workspace";
 
-/** Lazy-create the singleton settings row if it doesn't exist yet.
+/** Lazy-create the settings row for the current workspace if missing.
  *  Wrapped in React cache() so repeated calls within one server render
  *  share a single DB round-trip. */
 export const getSettings = cache(async () => {
-  let settings = await prisma.settings.findUnique({ where: { id: 1 } });
+  const workspaceId = await getCurrentWorkspaceId();
+  let settings = await prisma.settings.findUnique({ where: { workspaceId } });
   if (!settings) {
-    settings = await prisma.settings.create({ data: { id: 1 } });
+    settings = await prisma.settings.create({ data: { workspaceId } });
   }
   return settings;
 });
@@ -18,7 +20,7 @@ export async function nextInvoiceNumber() {
   const counter = String(settings.invoiceNumberCounter).padStart(4, "0");
   const number = `${settings.invoiceNumberPrefix}-${year}-${counter}`;
   await prisma.settings.update({
-    where: { id: 1 },
+    where: { workspaceId: settings.workspaceId },
     data: { invoiceNumberCounter: { increment: 1 } },
   });
   return number;

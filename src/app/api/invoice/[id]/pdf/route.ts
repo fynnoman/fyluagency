@@ -4,6 +4,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { prisma } from "@/lib/prisma";
 import { getSettings } from "@/lib/settings";
+import { getCurrentWorkspaceId } from "@/lib/workspace";
 import { InvoicePdf } from "@/lib/invoice-pdf";
 
 export const dynamic = "force-dynamic";
@@ -12,9 +13,10 @@ type Params = { params: Promise<{ id: string }> };
 
 export async function GET(_req: NextRequest, ctx: Params) {
   const { id } = await ctx.params;
+  const workspaceId = await getCurrentWorkspaceId();
   const [invoice, settings] = await Promise.all([
-    prisma.invoice.findUnique({
-      where: { id },
+    prisma.invoice.findFirst({
+      where: { id, workspaceId },
       include: {
         customer: true,
         items: { orderBy: { order: "asc" } },

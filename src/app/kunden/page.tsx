@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { getCurrentWorkspaceId } from "@/lib/workspace";
 import PageHeader from "@/components/PageHeader";
 import { formatMoney, formatDate } from "@/lib/format";
 import { Plus, ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
@@ -19,13 +20,15 @@ export default async function CustomersPage({
   const page = Math.max(1, Number(sp.page) || 1);
   const skip = (page - 1) * PAGE_SIZE;
 
+  const workspaceId = await getCurrentWorkspaceId();
   const [customers, totalCount] = await Promise.all([
     prisma.customer.findMany({
+      where: { workspaceId },
       orderBy: { createdAt: "desc" },
       skip,
       take: PAGE_SIZE,
     }),
-    prisma.customer.count(),
+    prisma.customer.count({ where: { workspaceId } }),
   ]);
 
   // Aggregate revenue per customer once, only for the customers on this page.
@@ -33,7 +36,7 @@ export default async function CustomersPage({
   const revenueRows = customerIds.length
     ? await prisma.invoice.groupBy({
         by: ["customerId"],
-        where: { customerId: { in: customerIds } },
+        where: { workspaceId, customerId: { in: customerIds } },
         _sum: { total: true },
       })
     : [];

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSettings, nextInvoiceNumber } from "@/lib/settings";
 import { parseInvoiceText, type ParsedItem } from "@/lib/invoice-parse";
+import { getCurrentWorkspaceId } from "@/lib/workspace";
 
 export async function parseFromText(text: string): Promise<{
   items: ParsedItem[];
@@ -25,6 +26,13 @@ export async function createInvoice(input: CreateInvoiceInput) {
   if (!input.customerId) throw new Error("Kein Kunde gewählt");
   if (!input.items.length) throw new Error("Keine Positionen");
 
+  const workspaceId = await getCurrentWorkspaceId();
+  const owned = await prisma.customer.findFirst({
+    where: { id: input.customerId, workspaceId },
+    select: { id: true },
+  });
+  if (!owned) throw new Error("Kunde gehört nicht zum aktuellen Workspace");
+
   const settings = await getSettings();
   const vatRate = input.vatRate ?? settings.vatRate;
   const subtotal = input.items.reduce(
@@ -41,6 +49,7 @@ export async function createInvoice(input: CreateInvoiceInput) {
 
   const invoice = await prisma.invoice.create({
     data: {
+      workspaceId,
       customerId: input.customerId,
       number,
       date,
@@ -71,8 +80,9 @@ export async function updateInvoiceStatus(
   id: string,
   status: "draft" | "sent" | "paid" | "overdue"
 ) {
-  await prisma.invoice.update({
-    where: { id },
+  const workspaceId = await getCurrentWorkspaceId();
+  await prisma.invoice.updateMany({
+    where: { id, workspaceId },
     data: {
       status,
       paidAt: status === "paid" ? new Date() : null,
@@ -83,8 +93,12 @@ export async function updateInvoiceStatus(
 }
 
 export async function deleteInvoice(id: string) {
-  const inv = await prisma.invoice.findUnique({ where: { id } });
-  await prisma.invoice.delete({ where: { id } });
+  const workspaceId = await getCurrentWorkspaceId();
+  const inv = await prisma.invoice.findFirst({ where: { id, workspaceId } });
+  if (!inv) {
+    redirect("/rechnungen");
+  }
+  await prisma.invoice.deleteMany({ where: { id, workspaceId } });
   revalidatePath("/rechnungen");
   if (inv) revalidatePath(`/kunden/${inv.customerId}`);
   redirect("/rechnungen");

@@ -5,6 +5,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { prisma } from "@/lib/prisma";
 import { getSettings } from "@/lib/settings";
+import { getCurrentWorkspaceId } from "@/lib/workspace";
 import { InvoicePdf } from "@/lib/invoice-pdf";
 
 export const dynamic = "force-dynamic";
@@ -43,9 +44,10 @@ function isoDate(d: Date | null | undefined): string {
 
 export async function GET(_req: NextRequest, ctx: Params) {
   const { id } = await ctx.params;
+  const workspaceId = await getCurrentWorkspaceId();
 
-  const customer = await prisma.customer.findUnique({
-    where: { id },
+  const customer = await prisma.customer.findFirst({
+    where: { id, workspaceId },
     include: {
       scopeItems: { orderBy: { order: "asc" } },
       costs: { orderBy: { createdAt: "desc" } },

@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { extractPdfText, extractTotalsFromText } from "@/lib/pdf-extract";
 import { saveUpload } from "@/lib/storage";
+import { getCurrentWorkspaceId } from "@/lib/workspace";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -19,7 +20,10 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const customer = await prisma.customer.findUnique({ where: { id: customerId } });
+  const workspaceId = await getCurrentWorkspaceId();
+  const customer = await prisma.customer.findFirst({
+    where: { id: customerId, workspaceId },
+  });
   if (!customer) {
     return NextResponse.json({ error: "Kunde nicht gefunden." }, { status: 404 });
   }
@@ -47,8 +51,8 @@ export async function POST(req: NextRequest) {
 
   const offerAmount = parsed.total ?? parsed.net ?? null;
 
-  await prisma.customer.update({
-    where: { id: customerId },
+  await prisma.customer.updateMany({
+    where: { id: customerId, workspaceId },
     data: {
       offerDocumentPath: publicPath,
       offerDocumentFilename: file.name,

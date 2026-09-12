@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Toaster } from "sonner";
 import "./globals.css";
 import Sidebar from "@/components/Sidebar";
+import TopBar from "@/components/TopBar";
 
 export const metadata: Metadata = {
   title: "Fylu Agency · Dashboard",
@@ -18,6 +19,7 @@ export default function RootLayout({
         <div className="min-h-screen flex">
           <Sidebar />
           <main className="flex-1 min-w-0">
+            <TopBar />
             <div className="max-w-7xl mx-auto px-6 lg:px-10 py-8 lg:py-10">
               {children}
             </div>

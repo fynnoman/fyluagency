@@ -3,13 +3,16 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { getCurrentWorkspaceId } from "@/lib/workspace";
 
 export async function createCustomer(formData: FormData) {
   const name = String(formData.get("name") || "").trim();
   if (!name) throw new Error("Name fehlt");
+  const workspaceId = await getCurrentWorkspaceId();
 
   const customer = await prisma.customer.create({
     data: {
+      workspaceId,
       name,
       company: str(formData, "company"),
       email: str(formData, "email"),
@@ -26,8 +29,9 @@ export async function createCustomer(formData: FormData) {
 }
 
 export async function updateCustomer(id: string, formData: FormData) {
-  await prisma.customer.update({
-    where: { id },
+  const workspaceId = await getCurrentWorkspaceId();
+  await prisma.customer.updateMany({
+    where: { id, workspaceId },
     data: {
       name: String(formData.get("name") || "").trim() || undefined,
       company: str(formData, "company"),
@@ -45,7 +49,8 @@ export async function updateCustomer(id: string, formData: FormData) {
 }
 
 export async function deleteCustomer(id: string) {
-  await prisma.customer.delete({ where: { id } });
+  const workspaceId = await getCurrentWorkspaceId();
+  await prisma.customer.deleteMany({ where: { id, workspaceId } });
   revalidatePath("/kunden");
   redirect("/kunden");
 }
@@ -67,8 +72,9 @@ export async function toggleProcessStep(
   next: boolean,
 ) {
   if (!PROCESS_FIELDS.has(field)) return;
-  await prisma.customer.update({
-    where: { id: customerId },
+  const workspaceId = await getCurrentWorkspaceId();
+  await prisma.customer.updateMany({
+    where: { id: customerId, workspaceId },
     data: { [field]: next, updatedAt: new Date() },
   });
   revalidatePath(`/kunden/${customerId}`);
@@ -78,6 +84,13 @@ export async function toggleProcessStep(
 export async function addScopeItem(customerId: string, formData: FormData) {
   const title = String(formData.get("title") || "").trim();
   if (!title) return;
+  const workspaceId = await getCurrentWorkspaceId();
+  // Sicherstellen dass der Kunde zum aktuellen Workspace gehört
+  const owned = await prisma.customer.findFirst({
+    where: { id: customerId, workspaceId },
+    select: { id: true },
+  });
+  if (!owned) return;
   const qtyRaw = String(formData.get("quantity") || "").trim();
   const priceRaw = String(formData.get("unitPrice") || "").trim();
   const quantity = qtyRaw ? Number(qtyRaw.replace(",", ".")) : 1;
@@ -102,7 +115,10 @@ export async function addScopeItem(customerId: string, formData: FormData) {
 }
 
 export async function toggleScopeItem(id: string, customerId: string) {
-  const item = await prisma.customerScopeItem.findUnique({ where: { id } });
+  const workspaceId = await getCurrentWorkspaceId();
+  const item = await prisma.customerScopeItem.findFirst({
+    where: { id, customer: { workspaceId } },
+  });
   if (!item) return;
   await prisma.customerScopeItem.update({
     where: { id },
@@ -112,7 +128,10 @@ export async function toggleScopeItem(id: string, customerId: string) {
 }
 
 export async function deleteScopeItem(id: string, customerId: string) {
-  await prisma.customerScopeItem.delete({ where: { id } });
+  const workspaceId = await getCurrentWorkspaceId();
+  await prisma.customerScopeItem.deleteMany({
+    where: { id, customer: { workspaceId } },
+  });
   revalidatePath(`/kunden/${customerId}`);
 }
 
@@ -121,6 +140,12 @@ export async function addCost(customerId: string, formData: FormData) {
   const amountRaw = String(formData.get("amount") || "").trim();
   const amount = Number(amountRaw.replace(",", "."));
   if (!description || !Number.isFinite(amount)) return;
+  const workspaceId = await getCurrentWorkspaceId();
+  const owned = await prisma.customer.findFirst({
+    where: { id: customerId, workspaceId },
+    select: { id: true },
+  });
+  if (!owned) return;
   const dueRaw = String(formData.get("dueDate") || "").trim();
   await prisma.cost.create({
     data: {
@@ -135,7 +160,10 @@ export async function addCost(customerId: string, formData: FormData) {
 }
 
 export async function deleteCost(id: string, customerId: string) {
-  await prisma.cost.delete({ where: { id } });
+  const workspaceId = await getCurrentWorkspaceId();
+  await prisma.cost.deleteMany({
+    where: { id, customer: { workspaceId } },
+  });
   revalidatePath(`/kunden/${customerId}`);
 }
 

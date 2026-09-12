@@ -1,5 +1,6 @@
 import { prisma } from "./prisma";
 import { chat, isAnyReachable } from "./ai";
+import { getCurrentWorkspaceId } from "./workspace";
 
 export type UpsellSuggestion = {
   customerId: string;
@@ -17,8 +18,9 @@ export type UpsellSuggestion = {
  * from invoice patterns.
  */
 export async function generateUpsells(): Promise<UpsellSuggestion[]> {
+  const workspaceId = await getCurrentWorkspaceId();
   const customers = await prisma.customer.findMany({
-    where: { archivedAt: null },
+    where: { workspaceId, archivedAt: null },
     include: {
       invoices: {
         orderBy: { date: "desc" },

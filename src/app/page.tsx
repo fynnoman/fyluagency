@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { FileText, Sparkles, Users, AlertCircle, Plus } from "lucide-react";
 import { prisma } from "@/lib/prisma";
+import { getCurrentWorkspaceId } from "@/lib/workspace";
 import PageHeader from "@/components/PageHeader";
 import { formatMoney, formatDate } from "@/lib/format";
 import { parseRange, getRangeStart, RANGE_LABEL, type RangeKey } from "@/lib/range";
@@ -16,7 +17,8 @@ export default async function Dashboard(props: { searchParams: SearchParams }) {
   const range = parseRange(sp.r);
   const start = getRangeStart(range);
 
-  const where = start ? { date: { gte: start } } : {};
+  const workspaceId = await getCurrentWorkspaceId();
+  const where = { workspaceId, ...(start ? { date: { gte: start } } : {}) };
   const [
     invoices,
     customers,
@@ -31,9 +33,10 @@ export default async function Dashboard(props: { searchParams: SearchParams }) {
         take: 500,
         include: { customer: { select: { id: true, name: true } } },
       }),
-      prisma.customer.count(),
+      prisma.customer.count({ where: { workspaceId } }),
       prisma.customer.findMany({
         where: {
+          workspaceId,
           archivedAt: null,
           OR: [
             { processOfferAccepted: true },
@@ -49,12 +52,13 @@ export default async function Dashboard(props: { searchParams: SearchParams }) {
         take: 8,
       }),
       prisma.lead.findMany({
-        where: { status: { in: ["meeting", "proposal", "contacted"] } },
+        where: { workspaceId, status: { in: ["meeting", "proposal", "contacted"] } },
         orderBy: { updatedAt: "desc" },
         take: 5,
       }),
       prisma.lead.findMany({
         where: {
+          workspaceId,
           status: { in: ["new", "contacted", "meeting", "proposal"] },
           expectedValue: { not: null },
         },
@@ -62,6 +66,7 @@ export default async function Dashboard(props: { searchParams: SearchParams }) {
       }),
       prisma.customer.findMany({
         where: {
+          workspaceId,
           archivedAt: null,
           processFinalInvoicePaid: false,
           projectValue: { not: null },
