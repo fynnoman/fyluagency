@@ -41,9 +41,29 @@ export default async function CustomerPage(props: { params: Params }) {
 
   if (!customer) notFound();
 
-  const totalInvoiced = customer.invoices.reduce((s, i) => s + i.total, 0);
-  const totalNet = customer.invoices.reduce((s, i) => s + i.subtotal, 0);
-  const totalVat = customer.invoices.reduce((s, i) => s + i.vatAmount, 0);
+  const uploadedParsed = customer.uploadedInvoices.filter(
+    (u) => u.extractedTotal != null,
+  );
+  const uploadedGross = uploadedParsed.reduce(
+    (s, u) => s + (u.extractedTotal ?? 0),
+    0,
+  );
+  const uploadedNet = uploadedParsed.reduce(
+    (s, u) => s + (u.extractedNet ?? 0),
+    0,
+  );
+  const uploadedVat = uploadedParsed.reduce(
+    (s, u) => s + (u.extractedVat ?? 0),
+    0,
+  );
+
+  const invoicedGross = customer.invoices.reduce((s, i) => s + i.total, 0);
+  const invoicedNet = customer.invoices.reduce((s, i) => s + i.subtotal, 0);
+  const invoicedVat = customer.invoices.reduce((s, i) => s + i.vatAmount, 0);
+
+  const totalInvoiced = invoicedGross + uploadedGross;
+  const totalNet = invoicedNet + uploadedNet;
+  const totalVat = invoicedVat + uploadedVat;
   const monthlyCost = customer.costs
     .filter((c) => c.frequency === "monthly")
     .reduce((s, c) => s + c.amount, 0);

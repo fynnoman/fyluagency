@@ -10,12 +10,14 @@ export type ExtractedInvoice = {
 
 /** Pull text from a PDF buffer using pdf-parse, lazy-imported. */
 export async function extractPdfText(buffer: Buffer): Promise<string> {
-  // pdf-parse has a top-level test that breaks in some bundlers — lazy load.
-  const mod = await import("pdf-parse");
-  const pdfParse = (mod as { default?: unknown }).default ?? mod;
-  type PdfParseFn = (b: Buffer) => Promise<{ text: string }>;
-  const data = await (pdfParse as PdfParseFn)(buffer);
-  return data.text || "";
+  const { PDFParse } = await import("pdf-parse");
+  const parser = new PDFParse({ data: new Uint8Array(buffer) });
+  try {
+    const result = await parser.getText();
+    return result.text || "";
+  } finally {
+    await parser.destroy?.();
+  }
 }
 
 /**

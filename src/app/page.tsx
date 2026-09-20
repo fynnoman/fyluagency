@@ -26,6 +26,7 @@ export default async function Dashboard(props: { searchParams: SearchParams }) {
     leadsPipeline,
     potentialLeads,
     potentialCustomers,
+    uploadedInvoices,
   ] = await Promise.all([
       prisma.invoice.findMany({
         where,
@@ -73,6 +74,21 @@ export default async function Dashboard(props: { searchParams: SearchParams }) {
         },
         select: { projectValue: true },
       }),
+      prisma.uploadedInvoice.findMany({
+        where: {
+          customer: { workspaceId },
+          extractedTotal: { not: null },
+          ...(start ? { extractedDate: { gte: start } } : {}),
+        },
+        select: {
+          id: true,
+          extractedTotal: true,
+          extractedNet: true,
+          extractedVat: true,
+          extractedDate: true,
+        },
+        take: 500,
+      }),
     ]);
 
   const potentialLeadsTotal = potentialLeads.reduce(
@@ -98,9 +114,26 @@ export default async function Dashboard(props: { searchParams: SearchParams }) {
     );
   }
 
-  const grossTotal = invoices.reduce((s, i) => s + i.total, 0);
-  const netTotal = invoices.reduce((s, i) => s + i.subtotal, 0);
-  const vatTotal = invoices.reduce((s, i) => s + i.vatAmount, 0);
+  const uploadedGross = uploadedInvoices.reduce(
+    (s, u) => s + (u.extractedTotal ?? 0),
+    0,
+  );
+  const uploadedNet = uploadedInvoices.reduce(
+    (s, u) => s + (u.extractedNet ?? 0),
+    0,
+  );
+  const uploadedVat = uploadedInvoices.reduce(
+    (s, u) => s + (u.extractedVat ?? 0),
+    0,
+  );
+
+  const grossTotal =
+    invoices.reduce((s, i) => s + i.total, 0) + uploadedGross;
+  const netTotal =
+    invoices.reduce((s, i) => s + i.subtotal, 0) + uploadedNet;
+  const vatTotal =
+    invoices.reduce((s, i) => s + i.vatAmount, 0) + uploadedVat;
+  const totalInvoiceCount = invoices.length + uploadedInvoices.length;
   const paidTotal = invoices
     .filter((i) => i.status === "paid")
     .reduce((s, i) => s + i.total, 0);
@@ -116,7 +149,14 @@ export default async function Dashboard(props: { searchParams: SearchParams }) {
       new Date(i.dueDate).getTime() < today.getTime()
   );
 
-  const chartData = buildChartData(invoices, range);
+  const uploadedForChart = uploadedInvoices
+    .filter((u): u is typeof u & { extractedDate: Date } => u.extractedDate != null)
+    .map((u) => ({
+      date: u.extractedDate,
+      total: u.extractedTotal ?? 0,
+      subtotal: u.extractedNet ?? 0,
+    }));
+  const chartData = buildChartData([...invoices, ...uploadedForChart], range);
 
   return (
     <>
@@ -178,7 +218,7 @@ export default async function Dashboard(props: { searchParams: SearchParams }) {
         <Kpi label="Brutto-Umsatz" value={formatMoney(grossTotal)} accent="primary" />
         <Kpi label="Netto" value={formatMoney(netTotal)} />
         <Kpi label="MwSt." value={formatMoney(vatTotal)} muted />
-        <Kpi label="Rechnungen" value={String(invoices.length)} muted />
+        <Kpi label="Rechnungen" value={String(totalInvoiceCount)} muted />
       </div>
 
       <div className="grid lg:grid-cols-[1.4fr_1fr] gap-6">
